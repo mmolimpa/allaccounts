@@ -599,7 +599,7 @@ var DebugWinMap = {
 
 
   _debugOuter: function(intOuterId, output, padding, usedOuters, usedInners) {
-    var win = getDOMUtils(UIUtils.getMostRecentWindow()).getOuterWindowWithId(intOuterId);
+    var win = Services.wm.getOuterWindowWithId(intOuterId);
 
     // removed outer window?
     var currentInner = (win === null) || (win.location === null) ? -1 : getDOMUtils(win).currentInnerWindowID;

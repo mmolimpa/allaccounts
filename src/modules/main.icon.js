@@ -43,7 +43,7 @@ function updateUIAsync(tab, updateTopLogin) {
     }
   }
   // workaround to make it non-blocking
-  doc.defaultView.mozRequestAnimationFrame(function() {
+  doc.defaultView.requestAnimationFrame(function() {
     updateUIAsyncCore(tab);
   });
 }
