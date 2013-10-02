@@ -4,8 +4,7 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = ["Main",  // bootstrap.js
-                        "util"]; // about-multifox.html
+var EXPORTED_SYMBOLS = ["Main"]; // bootstrap.js
 
 var Cc = Components.classes;
 var Ci = Components.interfaces;
@@ -28,7 +27,6 @@ Cu.import("resource://gre/modules/Services.jsm");
 #include "main.login-submit.js"
 #include "main.cookies.js"
 #include "main.util.js"
-#include "main.about.js"
 #include "main.icon.js"
 #include "main.UIUtils.js"
 #include "console.js"
@@ -93,7 +91,6 @@ var Main = {
     this._timer.initWithCallback({notify: this._lazyInit}, 5000, Ci.nsITimer.TYPE_ONE_SHOT);
 
     StringEncoding.init();
-    registerAbout();
     DocOverlay.init();
     SubmitObserver.start();
     NetworkObserver.start();
@@ -118,7 +115,6 @@ var Main = {
       LoginDB.uninit();
       ContentRelatedEvents.uninit();
       MainWindow.uninitAll();
-      unregisterAbout();
     } catch(ex) {
       console.error(ex);
     }

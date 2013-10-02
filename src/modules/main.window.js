@@ -32,11 +32,6 @@ var WindowWatcher = {
         //if ((win.document instanceof Ci.nsIDOMDocument) === false) {
         MainWindow.initWindow(win);
         break;
-      case "chrome://mozapps/content/extensions/about.xul":
-        // make "About" menuitem open about:multifox tab
-        var ns = util.loadSubScript("${PATH_CONTENT}/overlays.js");
-        ns.AboutOverlay.add(win);
-        break;
     }
   }
 
