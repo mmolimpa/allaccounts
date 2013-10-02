@@ -91,7 +91,7 @@ var ContentRelatedEvents = {
           msgData.uri = null;
         }
       }
-      return RemoteBrowserMethod[msgData.msg](msgData, tab);
+      return RemoteBrowserMethod[msgData.from](msgData, tab);
 
     } catch (ex) {
       console.error(ex);
@@ -172,9 +172,9 @@ var RemoteBrowserMethod = {
       return null; // TODO docUser=null for unnecessarily customized docs
     }
 
-    switch (msgData.cmdMethod) {
+    switch (msgData.cmd) {
       case "set":
-        Cookies.setCookie(docUser, msgData.uri, msgData.cmdValue, true);
+        Cookies.setCookie(docUser, msgData.uri, msgData.value, true);
         return null;
 
       case "get":
@@ -188,7 +188,7 @@ var RemoteBrowserMethod = {
         return {responseData: val};
 
       default:
-        throw new Error("documentCookie " + msgData.cmdMethod);
+        throw new Error("documentCookie " + msgData.cmd);
     }
   },
 
@@ -220,24 +220,24 @@ var RemoteBrowserMethod = {
 
 
     var rv;
-    switch (msgData.cmdMethod) {
+    switch (msgData.cmd) {
       case "clear":
         storage.clear();
         return null;
       case "removeItem":
-        storage.removeItem(msgData.cmdKey);
+        storage.removeItem(msgData.key);
         return null;
       case "setItem":
-        storage.setItem(msgData.cmdKey, msgData.cmdVal); // BUG it's ignoring https
+        storage.setItem(msgData.key, msgData.val); // BUG it's ignoring https
         return null;
       case "getItem":
-        return {responseData: storage.getItem(msgData.cmdKey)};
+        return {responseData: storage.getItem(msgData.key)};
       case "key":
-        return {responseData: storage.key(msgData.cmdIndex)};
+        return {responseData: storage.key(msgData.index)};
       case "length":
         return {responseData: storage.length};
       default:
-        throw new Error("localStorage interface unknown: " + msgData.cmdMethod);
+        throw new Error("localStorage interface unknown: " + msgData.cmd);
     }
   },
 

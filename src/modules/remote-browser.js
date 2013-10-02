@@ -27,7 +27,7 @@ function onNewDocument(evt) { // DOMWindowCreated handler
 
   var utils = getDOMUtils(win);
   var msgData = {
-    msg: "new-doc",
+    from: "new-doc",
     // TODO host: win.location.hostname,
     url: win.location.href,
     inner:       utils.currentInnerWindowID,
@@ -75,12 +75,7 @@ function onNewDocument(evt) { // DOMWindowCreated handler
 
 
 function startTab(msgData) { // BUG it's being called by a non-tab browser
-  m_nameSentByChrome  = msgData.sentByChrome;
-  m_nameSentByContent = msgData.sentByContent;
-  m_src = msgData.src + "initContext(window, document, '" +
-                                     m_nameSentByChrome + "','" +
-                                     m_nameSentByContent + "');"; // TODO send src concatenated
-  addEventListener(m_nameSentByContent, onContentCustomEvent, false, true); // untrusted event!
+  m_src = msgData.src;
 }
 
 
@@ -95,7 +90,6 @@ function stopTab(src) {
   forEachWindow(resetDoc, content);
   removeMessageListener("${BASE_ID}-parent-msg", onParentMessage);
   removeEventListener("DOMWindowCreated", onNewDocument, false);
-  removeEventListener(m_nameSentByContent, onContentCustomEvent, false);
   m_src = null;
   console.assert("initMultifox" in m_global, "stopTab fail m_global")
   var removed = delete m_global["initMultifox"];
@@ -105,15 +99,20 @@ function stopTab(src) {
 
 
 function initDoc(win) {
-  var sandbox = Cu.Sandbox(win, {sandboxName: "${BASE_ID}-content"});
+  var sandbox = Cu.Sandbox(win, {sandboxName: "${BASE_ID}-content", wantComponents:false});
   sandbox.window   = XPCNativeWrapper.unwrap(win);
   sandbox.document = XPCNativeWrapper.unwrap(win.document);
+  sandbox.sendCmd = function(obj) {
+    return cmdContent(obj, win);
+  };
 
   try {
+    // window.localStorage will be replaced by a Proxy object.
+    // It seems it's only possible using a sandbox.
     Cu.evalInSandbox(m_src, sandbox);
   } catch (ex) {
     var msgData = {
-      msg: "error",
+      from: "error",
       err: ex.toString(),
       innerId: getDOMUtils(win).currentInnerWindowID,
       url: win.location.href
@@ -133,7 +132,7 @@ function resetDoc(win, src) {
     Cu.evalInSandbox(src, sandbox);
   } catch (ex) {
     var msgData = {
-      msg:     "error",
+      from:    "error",
       err:     ex.toString(),
       innerId: getDOMUtils(win).currentInnerWindowID,
       url:     win.location.href
@@ -144,11 +143,8 @@ function resetDoc(win, src) {
 }
 
 
-function onContentCustomEvent(evt) {
-  var doc = evt.target;
-  var win = doc.defaultView;
-
-  var msgData = evt.detail;
+function cmdContent(obj, win) {
+  var msgData = obj;
   msgData.top = win === win.top; // TODO not used anymore?
   msgData.parent = win === win.top ? null : win.parent.location.href;
   msgData.url = win.location.href;
@@ -160,10 +156,9 @@ function onContentCustomEvent(evt) {
   var remoteObj = sendSyncMessage("${BASE_ID}-remote-msg", msgData)[0];
   if (remoteObj !== null) {
     // send remote data to page (e.g. cookie value)
-    var evt = doc.createEvent("CustomEvent");
-    evt.initCustomEvent(m_nameSentByChrome, true, true, remoteObj.responseData);
-    doc.dispatchEvent(evt);
+    return remoteObj.responseData;
   }
+  return undefined;
 }
 
 
@@ -220,15 +215,13 @@ function checkState() {
   // data will be received by onParentMessage
   console.log("checkState ok", content.location.href);
   var msgData = {
-    msg:   "send-inj-script",
+    from:  "send-inj-script",
     hosts: getSupportedUniqueHosts(content)
   };
   sendAsyncMessage("${BASE_ID}-remote-msg", msgData);
 }
 
 var m_src = null;
-var m_nameSentByChrome = null;
-var m_nameSentByContent = null;
 
 addMessageListener("${BASE_ID}-parent-msg", onParentMessage);
 addEventListener("DOMWindowCreated", onNewDocument, false);
