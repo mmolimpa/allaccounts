@@ -9,7 +9,8 @@ var ContentRelatedEvents = {
     var obs = Services.obs;
     obs.addObserver(this._onOuterDestroyed, "outer-window-destroyed", false);
     obs.addObserver(this._onInnerDestroyed, "inner-window-destroyed", false);
-    obs.addObserver(this._onDOMCreated,  "document-element-inserted", false);
+    obs.addObserver(this._onDOMCreated, "document-element-inserted", false);
+    obs.addObserver(this._onRemoteMsg, "${BASE_DOM_ID}-remote-msg", false);
   },
 
 
@@ -17,16 +18,14 @@ var ContentRelatedEvents = {
     var obs = Services.obs;
     obs.removeObserver(this._onOuterDestroyed, "outer-window-destroyed");
     obs.removeObserver(this._onInnerDestroyed, "inner-window-destroyed");
-    obs.removeObserver(this._onDOMCreated,  "document-element-inserted");
+    obs.removeObserver(this._onDOMCreated, "document-element-inserted");
+    obs.removeObserver(this._onRemoteMsg, "${BASE_DOM_ID}-remote-msg");
   },
 
 
   initWindow: function(win) {
     UIUtils.getContentContainer(win)
            .addEventListener("pageshow", this._onPageShow, false);
-    var mm = win.messageManager;
-    mm.addMessageListener("${BASE_ID}-remote-msg", this._onRemoteBrowserMessage);
-    mm.loadFrameScript("${PATH_MODULE}/remote-browser.js", true);
   },
 
 
@@ -37,14 +36,17 @@ var ContentRelatedEvents = {
       return;
     }
     // disabling Multifox
+    /*
     var srcCode = this._loadResetCode();
     var mm = win.messageManager;
     mm.removeDelayedFrameScript("${PATH_MODULE}/remote-browser.js");
     mm.removeMessageListener("${BASE_ID}-remote-msg", this._onRemoteBrowserMessage);
     mm.sendAsyncMessage("${BASE_ID}-parent-msg", {msg: "disable-extension", src: srcCode});
+    */
   },
 
 
+  /*
   _loadResetCode: function() {
     var src = null;
     var xhr = Cc["@mozilla.org/xmlextras/xmlhttprequest;1"].createInstance(Ci.nsIXMLHttpRequest);
@@ -56,6 +58,7 @@ var ContentRelatedEvents = {
     xhr.send(null); // synchronous
     return src;
   },
+  */
 
 
   _onInnerDestroyed: {
@@ -70,6 +73,23 @@ var ContentRelatedEvents = {
     observe: function(subject, topic, data) {
       var id = subject.QueryInterface(Ci.nsISupportsPRUint64).data;
       WinMap.removeOuter(id);
+    }
+  },
+
+
+  _onRemoteMsg: {
+    observe: function(subject, topic, data) {
+      var parentBrowser = subject;
+
+      console.assert((parentBrowser.tagName === "xul:browser") || (parentBrowser.tagName === "browser"),
+                     "not a browser element");
+
+      var rv = ContentRelatedEvents._onRemoteBrowserMessage({
+        target: parentBrowser,
+        json:   JSON.parse(data)
+      });
+      // send the return value to remote-browser
+      m_remote.setRemoteValue(rv);
     }
   },
 
@@ -99,7 +119,7 @@ var ContentRelatedEvents = {
   },
 
 
-  _onDOMCreated: { // TODO it will replace DOMWindowCreated
+  _onDOMCreated: {
     observe: function(subject, topic, data) {
       var win = subject.defaultView;
       if (win === null) {
@@ -110,11 +130,7 @@ var ContentRelatedEvents = {
         return;
       }
 
-      var innerId = getDOMUtils(win).currentInnerWindowID;
-      if (innerId in WinMap._inner) {
-        var entry = WinMap.getInnerEntry(innerId);
-        entry["x-document-element-inserted"] = win.location.href;
-      }
+      m_remote.onNewDocument(win);
     }
   },
 
@@ -251,19 +267,6 @@ var RemoteBrowserMethod = {
   "error": function(msgData, tab) {
     //console.assert(message.sync === false, "use sendAsyncMessage!");
     enableErrorMsg("sandbox", msgData, tab);
-    return null;
-  },
-
-
-  "send-inj-script": function(msgData, tab) {
-    //console.assert(message.sync === false, "use sendAsyncMessage!");
-    if (LoginDB.hasLoggedInHost(msgData.hosts)) {
-      var msgData2 = DocOverlay.getInitBrowserData();
-      msgData2.msg = "tab-data";
-      tab.linkedBrowser
-         .messageManager
-         .sendAsyncMessage("${BASE_ID}-parent-msg", msgData2);
-    }
     return null;
   }
 

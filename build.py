@@ -20,7 +20,7 @@ b.add_text("chrome.manifest")
 b.add_text("components/protocol.js")
 
 b.add_text("content/content-injection.js")
-b.add_text("content/content-injection-reset.js")
+#b.add_text("content/content-injection-reset.js")
 
 b.add_text("modules/main.js")
 b.add_text("modules/error.js")

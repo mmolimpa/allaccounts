@@ -234,6 +234,7 @@ var LoginDB = {
     }
   },
 
+  /*
   hasLoggedInHost: function(hosts) {
     var encTld;
     for (var idx = hosts.length - 1; idx > -1; idx--) {
@@ -244,6 +245,7 @@ var LoginDB = {
     }
     return false;
   },
+  */
 
   isLoggedIn: function(encTld) {
     this._ensureValid();

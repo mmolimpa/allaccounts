@@ -4,27 +4,32 @@
 
 "use strict";
 
-// workaround to allow uninstalling a frame script (stopTab)
-Object.defineProperty(this, "initMultifox", {
-  configurable: true, // allow delete
-  enumerable: true,
-  get: function() {
-    return function(Cu, Ci, Cc, m_global) {
+var EXPORTED_SYMBOLS = ["onNewDocument", "setRemoteValue"];
 
+var Ci = Components.interfaces;
+var Cu = Components.utils;
 Cu.import("resource://gre/modules/Services.jsm");
-Cu.import("resource://gre/modules/PrivateBrowsingUtils.jsm");
 
 #include "console.js"
   console.setAsRemote();
 
-function onNewDocument(evt) { // DOMWindowCreated handler
-  var doc = evt.target;
-  var win = doc.defaultView;
-
-  if (PrivateBrowsingUtils.isWindowPrivate(win)) {
+function onNewDocument(win) {
+  var chromeWin = UIUtils.getTopLevelWindow(win);
+  if (UIUtils.isMainWindow(chromeWin) === false) {
     return;
   }
 
+  var browser = UIUtils.getParentBrowser(win);
+  if (browser === null) {
+    return;
+  }
+
+  if (UIUtils.getLinkedTabFromBrowser(browser) === null) {
+    console.log("not a content browser", win);
+    return;
+  }
+
+  var doc = win.document;
   var utils = getDOMUtils(win);
   var msgData = {
     from: "new-doc",
@@ -57,7 +62,7 @@ function onNewDocument(evt) { // DOMWindowCreated handler
 
   if (m_src !== null) {
     // TODO sendSyncMessage=undefined ==> disabled extension or exception in the parent process
-    if ((sendSyncMessage("${BASE_ID}-remote-msg", msgData)[0]) !== null) {
+    if ((sendSyncMessageShim("${BASE_ID}-remote-msg", msgData, browser)[0]) !== null) {
       // TODO check if multifox should be disabled for this browser
       initDoc(win);
     }
@@ -66,7 +71,7 @@ function onNewDocument(evt) { // DOMWindowCreated handler
 
   // ask for source
   msgData["initBrowser"] = true; // TODO "init-tab"
-  var rv = sendSyncMessage("${BASE_ID}-remote-msg", msgData)[0];
+  var rv = sendSyncMessageShim("${BASE_ID}-remote-msg", msgData, browser)[0];
   if (rv !== null) {
     startTab(rv);
     initDoc(win);
@@ -79,6 +84,7 @@ function startTab(msgData) { // BUG it's being called by a non-tab browser
 }
 
 
+/*
 function stopTab(src) {
   function forEachWindow(fn, win) {
     fn(win, src);
@@ -96,6 +102,7 @@ function stopTab(src) {
   console.assert(removed, "stopTab fail")
   console.log("stopTab OK", getDOMUtils(content).currentInnerWindowID, content);
 }
+*/
 
 
 function initDoc(win) {
@@ -118,7 +125,7 @@ function initDoc(win) {
       url: win.location.href
     };
     msgData.topUrl = win !== win.top ? win.top.location.href : "";
-    sendAsyncMessage("${BASE_ID}-remote-msg", msgData);
+    sendAsyncMessageShim("${BASE_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win));
   }
 }
 
@@ -138,7 +145,7 @@ function resetDoc(win, src) {
       url:     win.location.href
     };
     msgData.topUrl = win !== win.top ? win.top.location.href : "";
-    sendAsyncMessage("${BASE_ID}-remote-msg", msgData);
+    sendAsyncMessageShim("${BASE_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win));
   }
 }
 
@@ -153,7 +160,7 @@ function cmdContent(obj, win) {
   msgData.outer = winutils.outerWindowID; // TODO useless, inner is enough
   msgData.inner = winutils.currentInnerWindowID;
 
-  var remoteObj = sendSyncMessage("${BASE_ID}-remote-msg", msgData)[0];
+  var remoteObj = sendSyncMessageShim("${BASE_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win))[0];
   if (remoteObj !== null) {
     // send remote data to page (e.g. cookie value)
     return remoteObj.responseData;
@@ -161,7 +168,7 @@ function cmdContent(obj, win) {
   return undefined;
 }
 
-
+/*
 function onParentMessage(message) {
   try { // detect silent exceptions
     switch (message.json.msg) {
@@ -178,64 +185,101 @@ function onParentMessage(message) {
     console.error(ex);
   }
 }
-
+*/
 
 function getDOMUtils(win) {
   return win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
 }
 
 
-function _getSupportedUniqueHosts(win, rv) {
-  var scheme = win.location.protocol;
-  if ((scheme === "http:") || (scheme === "https:")) {
-    var host = win.location.hostname;
-    if (rv.indexOf(host) === -1) {
-      rv.push(host);
-    }
-  }
-  for (var idx = win.length - 1; idx > -1; idx--) {
-    _getSupportedUniqueHosts(win[idx], rv); // check iframes
-  }
+// sendAsyncMessage() {
+function sendAsyncMessageShim(messageName, msgData, parentBrowser) {
+  parentBrowser.ownerDocument.defaultView.requestAnimationFrame(function() {
+    sendSyncMessageShim(null, msgData, parentBrowser);
+  });
 }
 
 
-function getSupportedUniqueHosts(win) {
-  var hosts = [];
-  _getSupportedUniqueHosts(win, hosts);
-  return hosts;
+// sendSyncMessage
+function sendSyncMessageShim(messageName, msgData, parentBrowser) {
+  m_rv = null; // setRemoteValue will update m_rv
+  Services.obs.notifyObservers(parentBrowser, "${BASE_DOM_ID}-remote-msg", JSON.stringify(msgData));
+  return [m_rv];
 }
 
 
-function checkState() {
-  if (content.location.href === "about:blank") {
-    return;
-  }
-  // is extension being installed/enabled/updated?
-  // we need to initialize tab ASAP to keep current documents working
-  // data will be received by onParentMessage
-  console.log("checkState ok", content.location.href);
-  var msgData = {
-    from:  "send-inj-script",
-    hosts: getSupportedUniqueHosts(content)
-  };
-  sendAsyncMessage("${BASE_ID}-remote-msg", msgData);
+function setRemoteValue(rv) {
+  m_rv = rv;
 }
 
+
+var m_rv;
 var m_src = null;
 
-addMessageListener("${BASE_ID}-parent-msg", onParentMessage);
-addEventListener("DOMWindowCreated", onNewDocument, false);
-checkState();
+
+var UIUtils = {
+
+  isMainWindow: function(chromeWin) {
+    return this._getWindowType(chromeWin) === "navigator:browser";
+  },
 
 
+  _getWindowType: function(chromeWin) {
+    return chromeWin.document.documentElement.getAttribute("windowtype");
+  },
+
+
+  getTabList: function(chromeWin) {
+    console.assert(this.isMainWindow(chromeWin), "Not a browser window", chromeWin);
+    return chromeWin.gBrowser.tabs; // <tab> NodeList
+  },
+
+
+  getLinkedTabFromBrowser: function(browser) { // TODO tabList[getDOMUtils(browser.contentWindow).outerWindowID]
+    var win = browser.ownerDocument.defaultView;
+    if (UIUtils.isMainWindow(win)) {
+      var tabList = this.getTabList(win);
+      for (var idx = tabList.length - 1; idx > -1; idx--) {
+        if (tabList[idx].linkedBrowser === browser) {
+          return tabList[idx]; // <tab>
+        }
+      }
     }
+    return null; // browser.xul has browser elements all over the place
+  },
+
+
+  getParentBrowser: function(win) {
+    var browser = win.QueryInterface(Ci.nsIInterfaceRequestor)
+                     .getInterface(Ci.nsIWebNavigation)
+                     .QueryInterface(Ci.nsIDocShell)
+                     .chromeEventHandler;
+    if (browser === null) {
+      return null;
+    }
+    console.assert((browser.tagName === "xul:browser") || (browser.tagName === "browser"),
+                   "not a browser element", browser.tagName, win, win.parent);
+    return browser;
+  },
+
+
+  getTopLevelWindow: function(win) { // content or chrome windows
+    if ((!win) || (!win.QueryInterface)) {
+      console.trace("getTopLevelWindow win=" + win);
+      return null;
+    }
+
+    var topwin = win.QueryInterface(Ci.nsIInterfaceRequestor)
+                    .getInterface(Ci.nsIWebNavigation)
+                    .QueryInterface(Ci.nsIDocShellTreeItem)
+                    .rootTreeItem
+                    .QueryInterface(Ci.nsIInterfaceRequestor)
+                    .getInterface(Ci.nsIDOMWindow);
+
+    console.assert(topwin !== null, "getTopLevelWindow null", win);
+    console.assert(topwin !== undefined, "getTopLevelWindow undefined", win);
+    console.assert(topwin === topwin.top, "getTopLevelWindow should return a top window");
+    // unwrapped object allows access to gBrowser etc
+    return XPCNativeWrapper.unwrap(topwin);
   }
-});
-
-
-try {
-  // this=ContentFrameMessageManager
-  this.initMultifox(Components.utils, Components.interfaces, Components.classes, this);
-} catch (ex) {
-  Components.utils.reportError(ex);
-}
+};

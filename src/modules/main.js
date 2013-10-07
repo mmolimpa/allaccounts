@@ -32,6 +32,9 @@ Cu.import("resource://gre/modules/Services.jsm");
 #include "console.js"
 
 
+var m_remote = {};
+
+
 var Main = {
   _install: false,
   _timer: null,
@@ -90,6 +93,7 @@ var Main = {
     this._timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
     this._timer.initWithCallback({notify: this._lazyInit}, 5000, Ci.nsITimer.TYPE_ONE_SHOT);
 
+    Cu.import("${PATH_MODULE}/remote-browser.js", m_remote);
     StringEncoding.init();
     DocOverlay.init();
     SubmitObserver.start();
@@ -108,6 +112,7 @@ var Main = {
   shutdown: function() {
     try { // detect silent exceptions
       console.log("Main.shutdown");
+      Cu.unload("${PATH_MODULE}/remote-browser.js");
       WindowWatcher.uninit();
       SubmitObserver.stop();
       NetworkObserver.stop();
