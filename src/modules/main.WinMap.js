@@ -13,38 +13,21 @@ var NewDocUser = {
       "original-url": msgData.url
     };
 
-    if ("x-frameElement.src" in msgData) {
-      outerEntry["frameSrc"] = msgData["x-frameElement.src"];
-    }
     if ("parentUrl" in msgData) {
       outerEntry.parent = msgData.parentUrl;
-    }
-    if ("openerUrl" in msgData) {
-      outerEntry.opener = msgData.openerUrl;
     }
 
     var outerData = WinMap.addToOuterHistory(outerEntry, msgData.outer, msgData.parentOuter);
 
-    // a location can be about:blank or "" at DOMWindowCreated. The real url will be known later.
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=696416#c1
-    PendingUsersLogins.check(msgData, outerData, "domcreated");
+    LoginCopy.fromOpener(msgData, outerData, "domcreated");
 
     var innerObj = WinMap.addInner(msgData);
-
-    var isUndefined = (msgData.url.length === 0) || (msgData.url === "about:blank");
-    if (isUndefined) {
-      // we don't know yet if it is a logged in doc, so we need to customized it.
-      // pode ser a logged in doc or anon.
-      innerObj.pending_login = true; // URL is unknown, we cannot define docuser. afaik, it will be same as parent.
-      outerEntry["x-doc-customized"] = true;
-      return true;
-    }
+    console.assert(msgData.url.length > 0, "empty url");
 
     var docUser = WinMap.findUser(msgData.uri, WinMap.getTopInnerId(msgData.inner)); // TODO reuse it from req/resp
     if (docUser !== null) {
       // logged in tld
       innerObj.docUserObj = docUser; // used by assets/iframes
-      outerEntry.x_login = docUser;
     } else {
       // anon tld: inherit it from a parent
       docUser = WinMap.getNextSavedUser(msgData.parentInner);
@@ -70,9 +53,9 @@ var NewDocUser = {
       url:  channel.URI.spec // TODO inutil?
     };
 
-    var outerData = WinMap.addToOuterHistory(entry, msgData.outer);
+    var outerData = WinMap.addToOuterHistory(entry, msgData.outer, msgData.parentOuter);
 
-    PendingUsersLogins.check(msgData, outerData, "request");
+    LoginCopy.fromOpener(msgData, outerData, "request");
 
     var topInnerId;
     var docUser;
@@ -134,11 +117,7 @@ var NewDocUser = {
     // (which should inherit login from parent)
     var log = this._findDocRequest(currentInnerId, outerId);
     console.assert(log !== null, "reponse without a request");
-    var docUser = "reqDocUserObj" in log ? log.reqDocUserObj : null;
-    if (docUser !== null) {
-      entry.x_login_obj = docUser; // for debug
-    }
-    return docUser;
+    return "reqDocUserObj" in log ? log.reqDocUserObj : null;
   },
 
 
@@ -279,6 +258,7 @@ var WinMap = { // stores all current outer/inner windows
 
 
   addInner: function(msgData) {
+    var innerId = msgData.inner;
     var innerObj = {
       __proto__: null,
       "url": msgData.url,
@@ -286,9 +266,16 @@ var WinMap = { // stores all current outer/inner windows
       "parentInnerId": msgData.parentInner
     };
 
+    // current entry may be a "placeholder" doc (from an unloaded tab)
+    // added by WinMap._update. The real document may have the same id.
+    if (innerId in this._inner) {
+      var entry = this._inner[innerId];
+      console.assert(entry.outerId === msgData.outer, "different outer id");
+      console.assert((entry.url === "about:blank") || (entry.url === msgData.url), "different url");
+    }
+
     // all inner windons should be preserved to allow a page from bfcache to use its original login
-    console.assert((msgData.inner in this._inner) === false, "WinMap.addInner", msgData.inner);
-    this._inner[msgData.inner] = innerObj;
+    this._inner[innerId] = innerObj;
     return innerObj;
   },
 
@@ -308,16 +295,16 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  addToOuterHistory: function(newHistObj, outerId, parentId) {
+  addToOuterHistory: function(newHistObj, outerId, parentOuterId = undefined) {
     var outerData;
     if (outerId in this._outer) {
       outerData = this._outer[outerId];
       outerData["x-history-length"]++;
     } else {
-      console.assert(typeof parentId !== "undefined", "missing parentId");
+      console.assert(typeof parentOuterId !== "undefined", "missing parentOuterId", outerId, parentOuterId);
       outerData = {
         __proto__: null,
-        parentOuter: parentId, // TODO parentId
+        parentOuter: parentOuterId, // TODO parentId
         outerHistory: []
       };
       this._outer[outerId] = outerData;
@@ -427,7 +414,6 @@ var WinMap = { // stores all current outer/inner windows
     var entry;
     while (innerId !== WinMap.TopWindowFlag) {
       entry = this.getInnerEntry(innerId);
-      console.assert(("pending_login" in entry) === false, "pending_login in getNextSavedUser", innerId, entry);
       if ("docUserObj" in entry) {
         return entry.docUserObj;
       }
@@ -438,12 +424,16 @@ var WinMap = { // stores all current outer/inner windows
 
 
   // called by request/response: <img>, <script>, <style>, XHR... (but not <iframe>)
-  getUserForAssetUri: function(innerId, realDocUrl, resUri) {
+  getUserForAssetUri: function(innerId, resUri) {
     // parent window docUser
-    var docUser = this.getSavedUser(innerId, realDocUrl);
+    var docUser = this.getSavedUser(innerId);
     if (docUser !== null) {
+      // BUG? facebook img inside twitter ignores facebook id?
+      // ==> it doesn't seem to care, HostJar won't use docUser.
       return docUser;
     }
+
+    // owner document is anon
 
     // resUri could be a logged in tld (different from anonymous innerId)
     var topInnerId = WinMap.getTopInnerId(innerId);
@@ -453,69 +443,21 @@ var WinMap = { // stores all current outer/inner windows
     }
 
     // fake a docUser
-    var tld = getTldFromUri(Services.io.newURI(realDocUrl, null, null));
+    var uri = Services.io.newURI(WinMap.getInnerEntry(innerId).url, null, null);
+    var tld = getTldFromUri(uri);
     if (tld === null) {
       // "about:"
-      tld = getTldForUnsupportedScheme(Services.io.newURI(realDocUrl, null, null));
+      tld = getTldForUnsupportedScheme(uri);
     }
     return new DocumentUser(null, tld, topInnerId);
   },
 
 
-  getSavedUser: function(innerId, realDocUrl) {
-    // TODO realDocUrl and entry.url should share the hostname
+  getSavedUser: function(innerId) {
     var entry = this.getInnerEntry(innerId);
-    if ("docUserObj" in entry) {
-      return entry.docUserObj; // identity used by document
-    }
-
-    if ("pending_login" in entry) {
-      console.assert(realDocUrl.length > 0, "getSavedUser empty");
-      PendingUsersLogins.fixUserForInnerEntry(innerId, realDocUrl);
-      if ("docUserObj" in entry) {
-        return entry.docUserObj; // identity used by document
-      }
-    }
-
-    return this.getNextSavedUser(entry.parentInnerId);
-  },
-
-
-  findUserForAboutBlank: function(innerId) { // JS popups/iframes?
-    console.trace("findUserForAboutBlank", innerId);
-    var inheritOpener = false;
-    var inheritParent = false;
-
-    var obj = this.getInnerEntry(innerId);
-    var isTop = this.isTabId(obj.parentInnerId);
-    if (isTop) {
-      inheritOpener = true; // is realDocUrl an js top doc? copy login from opener
-    } else {
-      inheritParent = true; // is realDocUrl an js iframe? copy login from parent
-    }
-
-    if (inheritOpener) {
-      var outerData = this.getOuterEntry(obj.outerId);
-      if ("openerInnerId" in outerData) {
-        var openerObj = this.getInnerEntry(outerData.openerInnerId);
-        console.assert(openerObj.url !== "about:blank", "findUserForAboutBlank openerObj.url !== about:blank", openerObj.url);
-        if ("docUserObj" in openerObj) {
-          obj["x-inherited-opener"] = openerObj.url;
-          return openerObj.docUserObj;
-        }
-      }
-    } else if (inheritParent) {
-      // innerId is an iframe with an anon url
-      // we do not inherit users for top docs. however, we inhreit all default users from opener tab.
-      var parentObj = this.getInnerEntry(obj.parentInnerId);
-      console.assert(("pending_login" in parentObj) === false, "pending_login in parentInnerObj");
-      if ("docUserObj" in parentObj) {
-        obj["x-inherited-parent"] = parentObj.url;
-        return parentObj.docUserObj;
-      }
-    }
-
-    return null;
+    return "docUserObj" in entry
+              ? entry.docUserObj // identity used by document
+              : this.getNextSavedUser(entry.parentInnerId);
   },
 
 
@@ -616,7 +558,6 @@ var DebugWinMap = {
       var s = padding;
       s += "x-deleted"        in obj ? "-" : "*";
       s += "x-doc-customized" in obj ? "x" : "*";
-      s += "pending_login"    in obj ? "?" : "*";
 
       s += " " + intOuterId + "[" + innerId + "] ";
       if ("docUserObj" in obj) {
@@ -657,34 +598,8 @@ var DebugWinMap = {
 
 
 
-var PendingUsersLogins = {
-
-  // called by request/domcreated
-  check: function(msgData, outerData, origin) {
-    this._fillOpener(msgData, outerData, origin); // TODO needed only for new outer wins
-
-    if (WinMap.isTabId(msgData.parentInner)) {
-      // top:
-      // _fillOpener (@request/domcreate) already copyed default logins to this new tab/popup.
-      if ("openerInnerId" in outerData) {
-        var openerObj = WinMap.getInnerEntry(outerData.openerInnerId); // BUG openerInnerId may not be available anymore
-        if ("pending_login" in openerObj) {
-          this.fixUserForInnerEntry(outerData.openerInnerId, outerData.openerUrl); // opener
-        }
-        console.assert(openerObj.url !== "about:blank", "PendingUsersLogins openerObj.url !== about:blank", openerObj.url);
-      }
-
-    } else {
-      // frame: update parent info
-      var parentObj = WinMap.getInnerEntry(msgData.parentInner);
-      if ("pending_login" in parentObj) {
-        this.fixUserForInnerEntry(msgData.parentInner, msgData.parentUrl);
-      }
-    }
-  },
-
-
-  _fillOpener: function(msgData, outerData, src) { // TODO still necessary?
+var LoginCopy = {  // TODO needed only for new outer wins
+  fromOpener: function(msgData, outerData, src) { // TODO still necessary?
     if (("openerOuter" in msgData) === false) {
       return;
     }
@@ -701,11 +616,8 @@ var PendingUsersLogins = {
     console.assert(WinMap.isTabId(msgData.parentOuter), "BUG has iframe an opener? maybe, target=nome_iframe");
     if ("openerOuterId" in outerData) {
       console.assert(outerData.openerOuterId === msgData.openerOuter, "outerData.openerOuterId !== msgData.openerOuter");
-      console.assert(outerData.openerInnerId === msgData.openerInner, "outerData.openerInnerId !== msgData.openerInner");
     } else {
-      outerData.openerInnerId = msgData.openerInner; // TODO opener: {innerId,...}
       outerData.openerOuterId = msgData.openerOuter;
-      outerData.openerUrl     = msgData.openerUrl;
     }
 
     outerData["opener-logins-migrated"] = outerData.openerOuterId;
@@ -739,47 +651,6 @@ var PendingUsersLogins = {
         targetLogins[tld] = openerLogins[tld];
       }
     }
-  },
-
-
-  // used by check and getSavedUser
-  fixUserForInnerEntry: function(innerId, realDocUrl) {
-    var obj = WinMap.getInnerEntry(innerId);
-    console.assert("pending_login" in obj, "pending_login fixUserForInnerEntry");
-    var docUser = null;
-
-    if (realDocUrl === "about:blank") {
-      docUser = WinMap.findUserForAboutBlank(innerId);
-    } else {
-      console.assert(realDocUrl.length > 0, "realDocUrl empty");
-      var uri = Services.io.newURI(realDocUrl, null, null); // TODO remove uri workaround
-      docUser = WinMap.findUser(uri, WinMap.getTopInnerId(innerId));
-    }
-
-
-    var entry = {
-      __proto__: null,
-      type:     "fixed-url",
-      inner_id: innerId,
-      old_url:  obj.url,
-      new_url:  realDocUrl
-    };
-    WinMap.addToOuterHistory(entry, obj.outerId);
-
-
-    // current doc url and original can be different. eg:
-    // https://mail.google.com/mail/#inbox
-    // https://mail.google.com/mail/#spam
-    delete obj.pending_login;
-    obj.url = realDocUrl;
-
-    if (docUser !== null) {
-      obj.docUserObj = docUser; // TODO uncustomize if docUser=null
-    }
-
-    var isTop = WinMap.isTabId(obj.parentInnerId);
-    var tabId = WinMap.getTabId(obj.outerId);
-    updateUIAsync(findTabById(tabId), isTop);
   }
 
 };

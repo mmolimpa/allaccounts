@@ -33,7 +33,16 @@ var NetworkObserver = {
       var docUser;
       var isWin = isWindowChannel(httpChannel);
 
-      var win = ctx.associatedWindow;
+      try{
+        var win = ctx.associatedWindow;
+      } catch (ex) {
+        // background thumbnailing?
+        // [nsIException: [Exception... "Component returned failure code: 0x8000ffff (NS_ERROR_UNEXPECTED)
+        console.log("request exception", httpChannel.URI.spec);
+        return;
+      }
+
+
       var tab = UIUtils.getLinkedTab(win);
       if (tab !== null) {
         if (isWin) {
@@ -42,7 +51,7 @@ var NetworkObserver = {
         } else {
           // css/js/xhr...
           var winutils = getDOMUtils(win);
-          docUser = WinMap.getUserForAssetUri(winutils.currentInnerWindowID, win.location.href, httpChannel.URI);
+          docUser = WinMap.getUserForAssetUri(winutils.currentInnerWindowID, httpChannel.URI);
         }
 
       } else {
@@ -72,11 +81,13 @@ var NetworkObserver = {
       var userHost = docUser.getHost(httpChannel.URI.host);
       UserState.addRequest(httpChannel.URI, win, isWin, userHost.user);
 
+      /*
       var myHeaders = HttpHeaders.fromRequest(httpChannel);
       if (myHeaders["authorization"] !== null) {
         // docUser + authorization = not supported
         enableErrorMsgLocal("authorization", win);
       }
+      */
 
       var userUri = httpChannel.URI.clone();
       userUri.host = userHost.toJar();
@@ -94,7 +105,15 @@ var NetworkObserver = {
         return;
       }
 
-      var win = ctx.associatedWindow;
+      try{
+        var win = ctx.associatedWindow;
+      } catch (ex) {
+        // background thumbnailing?
+        // [nsIException: [Exception... "Component returned failure code: 0x8000ffff (NS_ERROR_UNEXPECTED)
+        console.log("response exception", httpChannel.URI.spec);
+        return;
+      }
+
       var tab = UIUtils.getLinkedTab(win);
       if (tab === null) {
         return;
@@ -111,7 +130,6 @@ var NetworkObserver = {
                                                  winutils.outerWindowID);
       } else {
         docUser = WinMap.getUserForAssetUri(winutils.currentInnerWindowID,
-                                            win.location.href,
                                             httpChannel.URI);
       }
 
@@ -157,6 +175,7 @@ var HttpHeaders = {
     }
   },
 
+  /*
   fromRequest: function(request) {
     var nameValues = {
       //"cookie": null, //for debug only
@@ -166,6 +185,7 @@ var HttpHeaders = {
     request.visitRequestHeaders(this.visitLoop);
     return nameValues;
   },
+  */
 
   fromResponse: function(response) {
     var nameValues = {
@@ -205,8 +225,6 @@ function fillDocReqData(win) {
     };
     var utilsOpener = getDOMUtils(win.opener);
     msgData.openerOuter = utilsOpener.outerWindowID;
-    msgData.openerInner = utilsOpener.currentInnerWindowID;
-    msgData.openerUrl   = win.opener.location.href;
     return msgData;
   }
 

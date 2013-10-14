@@ -9,7 +9,7 @@ var ContentRelatedEvents = {
     var obs = Services.obs;
     obs.addObserver(this._onOuterDestroyed, "outer-window-destroyed", false);
     obs.addObserver(this._onInnerDestroyed, "inner-window-destroyed", false);
-    obs.addObserver(this._onDOMCreated, "document-element-inserted", false);
+    obs.addObserver(this._onDocElementInserted, "document-element-inserted", false);
     obs.addObserver(this._onRemoteMsg, "${BASE_DOM_ID}-remote-msg", false);
   },
 
@@ -18,7 +18,7 @@ var ContentRelatedEvents = {
     var obs = Services.obs;
     obs.removeObserver(this._onOuterDestroyed, "outer-window-destroyed");
     obs.removeObserver(this._onInnerDestroyed, "inner-window-destroyed");
-    obs.removeObserver(this._onDOMCreated, "document-element-inserted");
+    obs.removeObserver(this._onDocElementInserted, "document-element-inserted");
     obs.removeObserver(this._onRemoteMsg, "${BASE_DOM_ID}-remote-msg");
   },
 
@@ -119,7 +119,8 @@ var ContentRelatedEvents = {
   },
 
 
-  _onDOMCreated: {
+  // OBS: document-element-inserted is not triggered by about:blank / xul docs
+  _onDocElementInserted: {
     observe: function(subject, topic, data) {
       var win = subject.defaultView;
       if (win === null) {
@@ -180,12 +181,12 @@ var ContentRelatedEvents = {
 var RemoteBrowserMethod = {
 
   cookie: function(msgData) {
-    var docUser = WinMap.getSavedUser(msgData.inner, msgData.url); // TODO send .uri instead of .url
+    var docUser = WinMap.getSavedUser(msgData.inner);
     if (docUser === null) {
       // the last user has been removed; one or more tabs now use the default user
       // BUG we need to send the correct cookie
-      console.warn("cookie docUser=null", msgData);
-      return null; // TODO docUser=null for unnecessarily customized docs
+      console.warn("cookie docUser=null", msgData, WinMap.getInnerEntry(msgData.inner));
+      return null;
     }
 
     switch (msgData.cmd) {
@@ -210,7 +211,7 @@ var RemoteBrowserMethod = {
 
 
   localStorage: function(msgData) {
-    var docUser = WinMap.getSavedUser(msgData.inner, msgData.url);
+    var docUser = WinMap.getSavedUser(msgData.inner);
     if (docUser === null) {
       console.warn("localStorage docUser=null", msgData);
       return null; // BUG should return the actual data
@@ -246,19 +247,11 @@ var RemoteBrowserMethod = {
   "new-doc": function(msgData, tab) {
     var isTop = WinMap.isTabId(msgData.parentOuter);
     var customize = NewDocUser.addNewDocument(msgData);
+    updateUIAsync(tab, isTop);
     if (customize) {
-      if (isTop) {
-        updateUIAsync(tab, true); // make sure icon is removed if pending_login is never defined
-      } else {
-        var innerObj = WinMap.getInnerEntry(msgData.inner);
-        if (("pending_login" in innerObj) === false) { // TODO temp
-          updateUIAsync(tab, false);
-        }
-      }
       // tell remote browser to apply script to document
       return "initBrowser" in msgData ? DocOverlay.getInitBrowserData() : {};
     } else {
-      updateUIAsync(tab, isTop); // remove icon
       return null; // ignore document
     }
   },

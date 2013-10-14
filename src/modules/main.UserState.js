@@ -250,9 +250,6 @@ var UserChange = {
 
     for (var id in WinMap._inner) {
       var docData = WinMap._inner[id];
-      if ("pending_login" in docData) {
-        continue;
-      }
 
       var tldInner = getTldFromUri(Services.io.newURI(docData.url, null, null));
       if ((tldInner === null) || (tldInner !== docUser.ownerTld)) {
@@ -334,9 +331,6 @@ var UserChange = {
     for (var id in WinMap._inner) {
       var docData = WinMap._inner[id];
       var innerId = parseInt(id, 10);
-      if ("pending_login" in docData) {
-        continue;
-      }
 
       if ("docUserObj" in docData) {
         var uriInner = Services.io.newURI(docData.url, null, null);

@@ -48,16 +48,11 @@ function onNewDocument(win) {
     msgData.parentInner = u.currentInnerWindowID;
     msgData.parentUrl   = win.parent.location.href; // to fix pending objs // TODO only for url=""/about:blank?
   }
-  if (win.frameElement) {
-    msgData["x-frameElement.src"] = win.frameElement.src; // TODO
-  }
 
   if (win.opener !== null) {
     // OBS opener=null for middle clicks. It works for target=_blank links, even for different domains
     var util2 = getDOMUtils(win.opener);
     msgData.openerOuter = util2.outerWindowID; //  // TODO useless, inner is enough
-    msgData.openerInner = util2.currentInnerWindowID;
-    msgData.openerUrl   = win.opener.location.href; // to fix pending objs
   }
 
   if (m_src !== null) {
@@ -257,9 +252,15 @@ var UIUtils = {
     if (browser === null) {
       return null;
     }
-    console.assert((browser.tagName === "xul:browser") || (browser.tagName === "browser"),
-                   "not a browser element", browser.tagName, win, win.parent);
-    return browser;
+    if (browser.tagName === "xul:browser") {
+      return browser;
+    }
+    if (browser.tagName === "browser") {
+      return browser;
+    }
+    // e.g. <iframe> chrome://browser/content/devtools/cssruleview.xhtml
+    console.log("not a browser element", browser.tagName, win, win.parent);
+    return null;
   },
 
 
