@@ -162,31 +162,25 @@ DocumentUser.prototype = {
 
 
 function HostJar(host, docUser) {
+  console.assert(docUser !== null, "docUser should not be null");
+  this._host = host;
   var tld = getTldFromHost(host);
+
   var hostUser;
-  if (tld === docUser._ownerDocTld) {
+  if (tld === docUser.ownerTld) {
+    // 1st-party host
     hostUser = docUser;
+    this._hostIsAnon = false;
+
   } else {
     var assetUri = Services.io.newURI("http://" + tld, null, null);
     hostUser = WinMap.findUser(assetUri, docUser.topDocId);
-  }
-
-  this._host = host;
-  this._hostIsAnon = hostUser === null;
-
-  if (this._hostIsAnon) {
-    this._tldTop = docUser._topDocTld;
-    if (docUser.user === null) {
-      this._mode = "nop";    // topdoc=www.foo.com frame=www.foo.com img=www.bar.com
-      this._user = null;
-    } else if (docUser.user.isNewAccount) {
-      this._mode = "by_top";            // topdoc=www.google.com img=www.foo.com
-      this._user = null;
-    } else {
-      this._mode = "by_inherited_user"; // topdoc=www.google.com, img=www.foo.com
-      this._user = docUser.user;
+    this._hostIsAnon = hostUser === null;
+    if (this._hostIsAnon) {
+      this._handleAnon3rdPartyHost(docUser);
+      return;
     }
-    return;
+    // tld="twitter.com" doc="facebook.com"
   }
 
 
@@ -213,6 +207,21 @@ function HostJar(host, docUser) {
 
 
 HostJar.prototype = {
+
+  _handleAnon3rdPartyHost: function(docUser) {
+    this._tldTop = docUser._topDocTld;
+    if (docUser.user === null) {
+      this._mode = "nop";    // topdoc=www.foo.com frame=www.foo.com img=www.bar.com
+      this._user = null;
+    } else if (docUser.user.isNewAccount) {
+      this._mode = "by_top";            // topdoc=www.google.com img=www.foo.com
+      this._user = null;
+    } else {
+      this._mode = "by_inherited_user"; // topdoc=www.google.com, img=www.foo.com
+      this._user = docUser.user;
+    }
+  },
+
 
   get user() {
     return this._hostIsAnon ? null : this._user;
