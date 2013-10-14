@@ -17,7 +17,7 @@ Startup.prototype = {
   QueryInterface: XPCOMUtils.generateQI([Components.interfaces.nsIObserver]),
   observe: function(subject, topic, data) {
     if (topic === "profile-after-change") {
-      Components.utils.import("resource://multifox-modules/main.js");
+      Components.utils.import("${PATH_MODULE}/main.js");
       Main.startup(true);
     }
   }
