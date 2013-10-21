@@ -33,7 +33,7 @@ var NewDocUser = {
       docUser = WinMap.getNextSavedUser(msgData.parentInner);
     }
 
-    if (docUser === null) {
+    if ((docUser === null) || docUser.user.isNewAccount) {
       return false; // anon tab (docUser=null or NewAccount) => don't customize
     }
 
@@ -277,6 +277,11 @@ var WinMap = { // stores all current outer/inner windows
     // all inner windons should be preserved to allow a page from bfcache to use its original login
     this._inner[innerId] = innerObj;
     return innerObj;
+  },
+
+
+  getInnerIdEnumerator: function() {
+    return Iterator(this._inner, true);
   },
 
 

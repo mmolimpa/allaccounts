@@ -182,12 +182,8 @@ var RemoteBrowserMethod = {
 
   cookie: function(msgData) {
     var docUser = WinMap.getSavedUser(msgData.inner);
-    if (docUser === null) {
-      // the last user has been removed; one or more tabs now use the default user
-      // BUG we need to send the correct cookie
-      console.warn("cookie docUser=null", msgData, WinMap.getInnerEntry(msgData.inner));
-      return null;
-    }
+    console.assert(docUser !== null, "docUser should be valid");
+    console.assert(docUser.user.isNewAccount === false, "NewAccount should not happen here");
 
     switch (msgData.cmd) {
       case "set":
@@ -212,34 +208,84 @@ var RemoteBrowserMethod = {
 
   localStorage: function(msgData) {
     var docUser = WinMap.getSavedUser(msgData.inner);
-    if (docUser === null) {
-      console.warn("localStorage docUser=null", msgData);
-      return null; // BUG should return the actual data
-    }
+    console.assert(docUser !== null, "docUser should be valid");
+    console.assert(docUser.user.isNewAccount === false, "NewAccount should not happen here");
 
     var uri = docUser.appendLoginToUri(msgData.uri);
     var principal = Services.scriptSecurityManager.getNoAppCodebasePrincipal(uri);
     var storage = Services.domStorageManager.createStorage(principal, ""); // nsIDOMStorage
 
-    var rv;
+    var rv = null;
+    var oldVal;
+    var eventData = null;
+
     switch (msgData.cmd) {
       case "clear":
+        if (storage.length > 0) {
+          eventData = ["", null, null];
+        }
         storage.clear();
-        return null;
+        break;
       case "removeItem":
+        oldVal = storage.getItem(msgData.key);
+        if (oldVal !== null) {
+          eventData = [msgData.key, oldVal, null];
+        }
         storage.removeItem(msgData.key);
-        return null;
+        break;
       case "setItem":
+        oldVal = storage.getItem(msgData.key);
+        if (oldVal !== msgData.val) {
+          eventData = [msgData.key, oldVal, msgData.val];
+        }
         storage.setItem(msgData.key, msgData.val); // BUG it's ignoring https
-        return null;
+        break;
       case "getItem":
-        return {responseData: storage.getItem(msgData.key)};
+        rv = {responseData: storage.getItem(msgData.key)};
+        break;
       case "key":
-        return {responseData: storage.key(msgData.index)};
+        rv = {responseData: storage.key(msgData.index)};
+        break;
       case "length":
-        return {responseData: storage.length};
+        rv = {responseData: storage.length};
+        break;
       default:
         throw new Error("localStorage interface unknown: " + msgData.cmd);
+    }
+
+    if (eventData !== null) {
+      this._localStorageEvent(eventData, docUser, msgData.inner);
+    }
+
+    return rv;
+  },
+
+
+  _localStorageEvent: function(data, srcDocUser, srcInnerId) {
+    var srcWin = Services.wm.getCurrentInnerWindowWithId(srcInnerId);
+    var srcOrigin = srcWin.location.origin;
+    var evt = null;
+
+    var enumWin = WinMap.getInnerIdEnumerator();
+    for (var innerStr in enumWin) {
+      var innerId = parseInt(innerStr, 10);
+      var docUser = WinMap.getSavedUser(innerId);
+      if (docUser === null) {
+        continue;
+      }
+      if (UserUtils.equalsUser(srcDocUser.user, docUser.user) === false) {
+        continue;
+      }
+      var win = Services.wm.getCurrentInnerWindowWithId(innerId); // null=>bfcached?
+      if ((win === null) || (win.location === null) ||
+         (win.location.origin !== srcOrigin) || (srcInnerId === innerId)) {
+        continue;
+      }
+      if (evt === null) {
+        evt = srcWin.document.createEvent("StorageEvent");
+        evt.initStorageEvent("storage", false, false, data[0], data[1], data[2], srcWin.location.href, null);
+      }
+      win.dispatchEvent(evt);
     }
   },
 
