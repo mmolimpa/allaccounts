@@ -288,8 +288,8 @@ var LoginDB = {
 
   _onCookieRejected: {
     observe: function(subject, topic, data) { // nsIObserver
-      console.log("cookie-rejected 0", subject, topic, data);
-      console.log("cookie-rejected 1", subject.QueryInterface(Ci.nsIURI));
+      //console.log("cookie-rejected 0", subject, topic, data);
+      //console.log("cookie-rejected 1", subject.QueryInterface(Ci.nsIURI));
     }
   },
 
@@ -319,7 +319,7 @@ var LoginDB = {
           break;
         case "batch-deleted":
           var all = subject.QueryInterface(Ci.nsIArray).enumerate();
-          console.log("cookie BATCH-DELETED!", data, all);
+          //console.log("cookie BATCH-DELETED!", data, all);
           while (all.hasMoreElements()) {
             var cookie = all.getNext().QueryInterface(Ci.nsICookie2);
             if (LoginDB.invalidateAfterCookieDeletion(cookie.host)) {

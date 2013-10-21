@@ -61,7 +61,7 @@ var NetworkObserver = {
           console.log("REQUEST - viewsource", httpChannel.URI);
           docUser = NewDocUser.viewSourceRequest(win, httpChannel.URI);
         } else {
-          console.log("REQUEST - TAB NOT FOUND", httpChannel.URI);
+          console.log("REQUEST - TAB NOT FOUND", httpChannel.URI, win);
           return; // tab not found: request from chrome (favicon, updates, <link rel="next"...)
         }
       }

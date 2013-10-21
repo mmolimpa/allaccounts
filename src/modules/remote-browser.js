@@ -204,6 +204,7 @@ function sendSyncMessageShim(messageName, msgData, parentBrowser) {
 
 
 function setRemoteValue(rv) {
+  console.assert(rv !== undefined, "undefined rv");
   m_rv = rv;
 }
 
