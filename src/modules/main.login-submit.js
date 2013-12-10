@@ -147,7 +147,7 @@ function countPasswordFields(form, populatedOnly) {
   for (var idx = all.length - 1; idx > -1; idx--) {
     var elem = all[idx];
     if ((elem instanceof INPUT) && (elem.type === "password")) {
-      if (isElementVisible(elem)) {
+      if (isElementVisible(elem) && (elem.readOnly === false)) {
         if (populatedOnly && (elem.value.trim().length === 0)) {
           continue;
         }
@@ -182,6 +182,9 @@ function findUserName(form) {
       default:
         continue;
     }
+    if (elem.readOnly === false) {
+      continue;
+    }
     if ((elem.value.trim().length === 0) || isElementVisible(elem) === false) {
       // ignore empty/hidden fields
       console.log("findUserName", "element ignored", elem.name);
@@ -200,14 +203,9 @@ function findUserName(form) {
 }
 
 
+// https://bugzilla.mozilla.org/show_bug.cgi?id=595451#c10
 function isElementVisible(elem) {
-  // some elements with display:none/visibility:hidden are already removed from form
-  var win = elem.ownerDocument.defaultView;
-  var val = win.getComputedStyle(elem, "").getPropertyValue("visibility");
-  console.assert(val === "visible", "visibility", val);
-  console.log("isElementVisible", "getBoundingClientRect().width " + elem.getBoundingClientRect().width, typeof elem.getBoundingClientRect().width, elem.tagName, elem.type, " name:" + elem.name);
-
-  return elem.getBoundingClientRect().width > 0;
+  return elem.getClientRects().length > 0;
 }
 
 
