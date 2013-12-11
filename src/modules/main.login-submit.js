@@ -221,16 +221,22 @@ function skipLogin(tldDoc) {
 
 
 function getTldWhiteList() {
+  // about:config => new string pref => "google.com facebook.com"
   // extensions.{42f25d10-4944-11e2-96c0-0b6a95a8daf0}.tldWhitelistMode
   var branch = Services.prefs.getBranch("extensions.${EXT_ID}.");
   var prefName = "tldWhitelistMode";
   if (branch.prefHasUserValue(prefName)) {
     try {
-      // eg "google.com   foo.bar  " => ["google.com", "foo.bar"]
-      return branch.getCharPref(prefName).trim().split(/\s* \s*/);
+      return spaceDelimitedToArray(branch.getCharPref(prefName));
     } catch (ex) {
       console.error(ex);
     }
   }
   return null;
+}
+
+
+// eg. "google.com   foo.bar  " => ["google.com", "foo.bar"]
+function spaceDelimitedToArray(txt) {
+  return txt.trim().split(/\s* \s*/);
 }
