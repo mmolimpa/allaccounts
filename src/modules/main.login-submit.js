@@ -182,7 +182,8 @@ function findUserName(form) {
       default:
         continue;
     }
-    if (elem.readOnly === false) {
+    if (elem.readOnly) {
+      console.log("findUserName", "readOnly", elem.name);
       continue;
     }
     if ((elem.value.trim().length === 0) || isElementVisible(elem) === false) {
