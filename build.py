@@ -40,20 +40,20 @@ b.add_text("locale/${locale}/about.properties")
 b.add_text("locale/${locale}/welcome.properties")
 
 
-b.set_var("SOURCE_URL",      "https://github.com/hultmann/multifox/tree/" + sys.argv[1] #changeset
+b.set_var("SOURCE_URL",      "https://github.com/hultmann/allaccounts/tree/" + sys.argv[1] #changeset
                              if len(sys.argv) > 1 else
-                             "https://github.com/hultmann/multifox/tree/master/src")
-b.set_var("EXT_VERSION",     "2.0b9b1")
+                             "https://github.com/hultmann/allaccounts/tree/master/src")
+b.set_var("EXT_VERSION",     "2.1a1pre")
 b.set_var("EXT_ID",          "{42f25d10-4944-11e2-96c0-0b6a95a8daf0}")
-b.set_var("EXT_NAME",        "Multifox 2 (BETA)")
-b.set_var("EXT_SITE",        "http://br.mozdev.org/multifox/")
+b.set_var("EXT_NAME",        "AllAccounts (Formerly Multifox 2 BETA)")
+b.set_var("EXT_SITE",        "http://br.mozdev.org/multifox/all.html")
 b.set_var("APP_MIN_VERSION", "24.0")
-b.set_var("APP_MAX_VERSION", "27.*")
-b.set_var("CHROME_NAME",     "multifox")
-b.set_var("RESOURCE_NAME",   "multifox-modules")
-b.set_var("PATH_CONTENT",    "chrome://multifox/content")
-b.set_var("PATH_LOCALE",     "chrome://multifox/locale")
-b.set_var("PATH_MODULE",     "resource://multifox-modules")
+b.set_var("APP_MAX_VERSION", "28.*")
+b.set_var("CHROME_NAME",     "all-accounts")
+b.set_var("RESOURCE_NAME",   "all-accounts-modules")
+b.set_var("PATH_CONTENT",    "chrome://all-accounts/content")
+b.set_var("PATH_LOCALE",     "chrome://all-accounts/locale")
+b.set_var("PATH_MODULE",     "resource://all-accounts-modules")
 
 b.set_var("BASE_ID",         "multifox2")
 
