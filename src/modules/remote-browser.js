@@ -24,7 +24,7 @@ function onNewDocument(win) {
     return;
   }
 
-  if (UIUtils.getLinkedTabFromBrowser(browser) === null) {
+  if (UIUtils.isContentBrowser(browser) === false) {
     console.log("not a content browser", win);
     return;
   }
@@ -231,21 +231,16 @@ var UIUtils = {
   },
 
 
-  getLinkedTabFromBrowser: function(browser) { // TODO tabList[getDOMUtils(browser.contentWindow).outerWindowID]
-    var win = browser.ownerDocument.defaultView;
-    if (UIUtils.isMainWindow(win)) {
-      var tabList = this.getTabList(win);
-      for (var idx = tabList.length - 1; idx > -1; idx--) {
-        if (tabList[idx].linkedBrowser === browser) {
-          return tabList[idx]; // <tab>
-        }
-      }
-    }
-    return null; // browser.xul has browser elements all over the place
+  isContentBrowser: function(browser) {
+    // edge case: browser (and tab) already removed from DOM
+    //            (browser.parentNode === null)
+    var t = browser.getAttribute("type");
+    return (t === "content-primary") || (t === "content-targetable");
   },
 
 
   getParentBrowser: function(win) {
+    console.assert(win !== null, "getParentBrowser win=null");
     var browser = win.QueryInterface(Ci.nsIInterfaceRequestor)
                      .getInterface(Ci.nsIWebNavigation)
                      .QueryInterface(Ci.nsIDocShell)

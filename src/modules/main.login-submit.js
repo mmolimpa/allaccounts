@@ -29,8 +29,8 @@ var SubmitObserver = {
       return;
     }
 
-    var tab = UIUtils.getLinkedTab(win);
-    if (tab === null) {
+    var browser = UIUtils.getParentBrowser(win);
+    if (UIUtils.isContentBrowser(browser) === false) {
       return null; // chrome form?
     }
 
@@ -41,7 +41,7 @@ var SubmitObserver = {
     if (UIUtils.isPrivateWindow(win)) {
       // obs: do not call WinMap.loginSubmitted for private windows
       // they should not be registered by WinMap
-      showPrivateWinMsg(tab);
+      showPrivateWinMsg(browser);
       return true;
     }
 
@@ -75,18 +75,18 @@ var SubmitObserver = {
     } else {
       copyDataToAnotherUser(tldDoc, docUser, currentDocUser);
     }
+    var tab = UIUtils.getLinkedTabFromBrowser(browser);
     tab.setAttribute("${BASE_ID}-logging-in", "true"); // activate transition
   }
 
 };
 
 
-function showPrivateWinMsg(tab) {
+function showPrivateWinMsg(browser) {
   var val = "${BASE_DOM_ID}-privwin";
   var msg = util.getText("infobar.private-window.label", "${EXT_NAME}");
   var icon = "chrome://global/skin/icons/information-16.png";
 
-  var browser = tab.linkedBrowser;
   var barBox = browser.getTabBrowser().getNotificationBox(browser);
   barBox.appendNotification(msg, val, icon, barBox.PRIORITY_WARNING_MEDIUM)
         .persistence = 1;

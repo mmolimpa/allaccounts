@@ -42,9 +42,12 @@ var NetworkObserver = {
         return;
       }
 
+      if (win === null) {
+        console.trace("request win=null", httpChannel.URI.spec);
+        return;
+      }
 
-      var tab = UIUtils.getLinkedTab(win);
-      if (tab !== null) {
+      if (UIUtils.isContentWindow(win)) {
         if (isWin) {
           // window/redir/download
           docUser = NewDocUser.addDocumentRequest(fillDocReqData(win), httpChannel);
@@ -114,8 +117,12 @@ var NetworkObserver = {
         return;
       }
 
-      var tab = UIUtils.getLinkedTab(win);
-      if (tab === null) {
+      if (win === null) {
+        console.trace("response win=null", httpChannel.URI.spec);
+        return;
+      }
+
+      if (UIUtils.isContentWindow(win) === false) {
         return;
       }
 

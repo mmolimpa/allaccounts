@@ -200,7 +200,10 @@ function enableErrorMsg(notSupportedFeature, msgData, tab) {
 function enableErrorMsgLocal(notSupportedFeature, win) {
   var msgData = {url: win.location.href, err: ""};
   msgData.topUrl = win !== win.top ? win.top.location.href : "";
-  enableErrorMsg(notSupportedFeature, msgData, UIUtils.getLinkedTab(win));
+
+  var browser = UIUtils.getParentBrowser(win);
+  var tab = UIUtils.getLinkedTabFromBrowser(browser);
+  enableErrorMsg(notSupportedFeature, msgData, tab);
 }
 
 

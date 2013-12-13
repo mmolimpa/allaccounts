@@ -54,6 +54,21 @@ var UIUtils = {
   },
 
 
+  isContentWindow: function(win) {
+    var browser = UIUtils.getParentBrowser(win);
+    return browser === null ? null : UIUtils.isContentBrowser(browser);
+  },
+
+
+  // browser.xul has browser elements all over the place
+  isContentBrowser: function(browser) {
+    // edge case: browser (and tab) already removed from DOM
+    //            (browser.parentNode === null)
+    var t = browser.getAttribute("type");
+    return (t === "content-primary") || (t === "content-targetable");
+  },
+
+
   getLinkedTabFromBrowser: function(browser) { // TODO tabList[getDOMUtils(browser.contentWindow).outerWindowID]
     var win = this.getTopLevelWindow(browser.ownerDocument.defaultView);
     if (UIUtils.isMainWindow(win)) {
@@ -64,19 +79,28 @@ var UIUtils = {
         }
       }
     }
-    return null; // browser.xul has browser elements all over the place
+    throw new Error("getLinkedTabFromBrowser: tab not found");
   },
 
 
-  getLinkedTab: function(win) {
-    if (win === null) {
-      return null;
-    }
+  getParentBrowser: function(win) {
+    console.assert(win !== null, "getParentBrowser win=null");
     var browser = win.QueryInterface(Ci.nsIInterfaceRequestor)
                      .getInterface(Ci.nsIWebNavigation)
                      .QueryInterface(Ci.nsIDocShell)
                      .chromeEventHandler;
-    return browser === null ? null : this.getLinkedTabFromBrowser(browser); // TODO tabList[getDOMUtils(win.top).outerWindowID]
+    if (browser === null) {
+      return null;
+    }
+    if (browser.tagName === "xul:browser") {
+      return browser;
+    }
+    if (browser.tagName === "browser") {
+      return browser;
+    }
+    // e.g. <iframe> chrome://browser/content/devtools/cssruleview.xhtml
+    console.log("not a browser element", browser.tagName, win, win.parent);
+    return null;
   },
 
 

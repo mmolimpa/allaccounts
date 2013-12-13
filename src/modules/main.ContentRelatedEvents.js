@@ -94,13 +94,13 @@ var ContentRelatedEvents = {
   },
 
 
-  _onRemoteBrowserMessage: function Content_onRemoteBrowserMessage(message) {
+  _onRemoteBrowserMessage: function(message) {
     // this = nsIChromeFrameMessageManager
     try {
       var browser = message.target;
-      var tab = UIUtils.getLinkedTabFromBrowser(browser);
-      if (tab === null) { // social-sidebar-browser etc
-        return null; // TODO assert "new-doc"?
+      if (UIUtils.isContentBrowser(browser) === false) {
+        console.assert(msgData.from !== "new-doc", "not a content new window");
+        return null; // social-sidebar-browser etc
       }
 
       var msgData = message.json;
@@ -111,7 +111,7 @@ var ContentRelatedEvents = {
           msgData.uri = null;
         }
       }
-      return RemoteBrowserMethod[msgData.from](msgData, tab);
+      return RemoteBrowserMethod[msgData.from](msgData, browser);
 
     } catch (ex) {
       console.error(ex);
@@ -148,8 +148,8 @@ var ContentRelatedEvents = {
         var fromCache = evt.persisted;
         if (fromCache) {
           // http top doc from cache: update icon
-          var tab = UIUtils.getLinkedTab(win);
-          if (tab !== null) {
+          var browser = UIUtils.getParentBrowser(win);
+          if (UIUtils.isContentBrowser(browser)) {
             var innerId = getDOMUtils(win).currentInnerWindowID;
             var data = WinMap.getInnerEntry(innerId);
             if ("docUserObj" in data) {
@@ -157,13 +157,15 @@ var ContentRelatedEvents = {
               var docUser = data.docUserObj;
               UserState.setTabDefaultFirstParty(docUser.ownerTld, tabId, docUser.user); // BUG [?] a 3rd party iframe may become the default
             }
+            var tab = UIUtils.getLinkedTabFromBrowser(browser);
             updateUIAsync(tab, isTopWindow(win));
           }
         }
 
       } else { // ftp:, about:, chrome: etc. request/response listener may not be called
-        var tab = UIUtils.getLinkedTab(win);
-        if (tab !== null) {
+        var browser = UIUtils.getParentBrowser(win);
+        if (UIUtils.isContentBrowser(browser)) {
+          var tab = UIUtils.getLinkedTabFromBrowser(browser);
           updateUIAsync(tab, isTopWindow(win));
         }
       }
@@ -290,9 +292,10 @@ var RemoteBrowserMethod = {
   },
 
 
-  "new-doc": function(msgData, tab) {
+  "new-doc": function(msgData, browser) {
     var isTop = WinMap.isTabId(msgData.parentOuter);
     var customize = NewDocUser.addNewDocument(msgData);
+    var tab = UIUtils.getLinkedTabFromBrowser(browser);
     updateUIAsync(tab, isTop);
     if (customize) {
       // tell remote browser to apply script to document
@@ -303,8 +306,9 @@ var RemoteBrowserMethod = {
   },
 
 
-  "error": function(msgData, tab) {
+  "error": function(msgData, browser) {
     //console.assert(message.sync === false, "use sendAsyncMessage!");
+    var tab = UIUtils.getLinkedTabFromBrowser(browser);
     enableErrorMsg("sandbox", msgData, tab);
     return null;
   }
