@@ -131,10 +131,6 @@ function createBoxDom(container) {
   stat.setAttribute("hidden", "true");
   stat.setAttribute("id", "${BASE_ID}-icon-stat-icon");
 
-  // context menu
-  container.setAttribute("context", "_child");
-  contextMenu.addEventListener("popupshowing", onContextPopupShown, false);
-
   // max-width
   container3.style.maxWidth = "20ch"; // TODO util.getText("icon.user.maxWidth");
   label.setAttribute("crop", "end");
@@ -348,13 +344,6 @@ function showMsgPanel(evt) {
   }, false);
 
   panel.openPopup(getStatIconContainer(doc), "bottomcenter topleft", 5, 0); // due to img.style.margin
-}
-
-
-function onContextPopupShown(evt) {
-  var menupopup = evt.originalTarget;
-  var ns = util.loadSubScript("${PATH_MODULE}/popup.js");
-  ns.createContextMenu(menupopup);
 }
 
 

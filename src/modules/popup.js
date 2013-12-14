@@ -48,34 +48,6 @@ function appendContent(container, panel) {
 }
 
 
-
-function createContextMenu(menupopup) {
-  var doc = menupopup.ownerDocument;
-  menupopup.addEventListener("popuphidden", onHideContextMenu, false);
-  menupopup.addEventListener("command", onLoginCommand, false);
-
-  // about
-  var item = menupopup.appendChild(doc.createElement("menuitem"));
-  item.setAttribute("cmd", "about");
-  item.setAttribute("label", util.getText("icon.user.about.label", "${EXT_NAME}"));
-  item.setAttribute("accesskey", util.getText("icon.user.about.accesskey"));
-  item.classList.add("${BASE_ID}-item");
-}
-
-
-function onHideContextMenu(evt) {
-  var menupopup = evt.originalTarget;
-  menupopup.removeEventListener("popuphidden", onHideContextMenu, false);
-  menupopup.removeEventListener("command", onLoginCommand, false);
-  var nodeList = menupopup.querySelectorAll(".${BASE_ID}-item");
-  for (var idx = nodeList.length - 1; idx > -1; idx--) {
-    var node = nodeList[idx];
-    node.parentNode.removeChild(node);
-  }
-  initIconNormal(menupopup.ownerDocument);
-}
-
-
 function createLoginsMenu(menupopup) {
   menupopup.addEventListener("popuphidden", onHideLoginsMenu, false);
   menupopup.addEventListener("command", onLoginCommand, false);
@@ -304,10 +276,6 @@ function loginCommandCore(menuItem, newTab) {
         UserChange.remove(tldTop, false, userId);
         loadTab(newTab, tab, userId.toNewAccount());
       }
-      break;
-
-    case "about":
-      openNewTab("about:multifox", win);
       break;
 
     case "set 3rd-party":
