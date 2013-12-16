@@ -40,8 +40,8 @@ var ContentRelatedEvents = {
     var srcCode = this._loadResetCode();
     var mm = win.messageManager;
     mm.removeDelayedFrameScript("${PATH_MODULE}/remote-browser.js");
-    mm.removeMessageListener("${BASE_ID}-remote-msg", this._onRemoteBrowserMessage);
-    mm.sendAsyncMessage("${BASE_ID}-parent-msg", {msg: "disable-extension", src: srcCode});
+    mm.removeMessageListener("${BASE_DOM_ID}-remote-msg", this._onRemoteBrowserMessage);
+    mm.sendAsyncMessage("${BASE_DOM_ID}-parent-msg", {msg: "disable-extension", src: srcCode});
     */
   },
 

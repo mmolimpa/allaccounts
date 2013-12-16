@@ -76,7 +76,7 @@ var SubmitObserver = {
       copyDataToAnotherUser(tldDoc, docUser, currentDocUser);
     }
     var tab = UIUtils.getLinkedTabFromBrowser(browser);
-    tab.setAttribute("${BASE_ID}-logging-in", "true"); // activate transition
+    tab.setAttribute("${BASE_DOM_ID}-logging-in", "true"); // activate transition
   }
 
 };

@@ -2,14 +2,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-content   ${CHROME_NAME} content/
+content   ${EXT_HOST} content/
 
-locale  ${CHROME_NAME}  en-US  locale/en-US/
-#locale  ${CHROME_NAME}  pt-BR  locale/pt-BR/
-#locale  ${CHROME_NAME}  es-ES  locale/es-ES/
+locale  ${EXT_HOST}  en-US  locale/en-US/
+#locale  ${EXT_HOST}  pt-BR  locale/pt-BR/
+#locale  ${EXT_HOST}  es-ES  locale/es-ES/
 
 component   {56c5d3a5-e39c-4131-af85-ebee4fceb792}   components/protocol.js
 contract    @hultmann/multifox/bg;1                  {56c5d3a5-e39c-4131-af85-ebee4fceb792}
 category    profile-after-change                     @hultmann/multifox/bg;1                  @hultmann/multifox/bg;1
 
-resource    ${RESOURCE_NAME}                         modules/
+resource    ${EXT_HOST}                         modules/

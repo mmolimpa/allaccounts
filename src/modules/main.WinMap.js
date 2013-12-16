@@ -467,17 +467,18 @@ var WinMap = { // stores all current outer/inner windows
 
 
   restoreTabDefaultUsers: function(tab) {
-    if (tab.hasAttribute("multifox-tab-logins") === false) {
+    var loginsAttr = "${PERSIST_TAB_LOGINS}";
+    if (tab.hasAttribute(loginsAttr) === false) {
       return;
     }
-    console.log("restoreDefaultLogins", tab.getAttribute("multifox-tab-logins"));
+    console.log("restoreDefaultLogins", tab.getAttribute(loginsAttr));
 
     var tabLogins;
     try {
       // TODO delay until tab is actually loaded (@ findUser?)
-      tabLogins = JSON.parse(tab.getAttribute("multifox-tab-logins"));
+      tabLogins = JSON.parse(tab.getAttribute(loginsAttr));
     } catch (ex) {
-      console.error(ex, "restoreTabDefaultUsers - buggy json", tab.getAttribute("multifox-tab-logins"));
+      console.error(ex, "restoreTabDefaultUsers - buggy json", tab.getAttribute(loginsAttr));
       return;
     }
 

@@ -6,7 +6,7 @@
 
 
 function createMsgPanel(doc) {
-  var panel = doc.getElementById("${BASE_ID}-popup");
+  var panel = doc.getElementById("${BASE_DOM_ID}-popup");
   if (panel) {
     //bug
     console.trace("createMsgPanel dup popup " + panel.state);
@@ -15,7 +15,7 @@ function createMsgPanel(doc) {
   }
 
   panel = doc.getElementById("mainPopupSet").appendChild(doc.createElement("panel"));
-  panel.setAttribute("id", "${BASE_ID}-popup");
+  panel.setAttribute("id", "${BASE_DOM_ID}-popup");
   panel.setAttribute("type", "arrow");
 
   var container = panel.appendChild(doc.createElement("vbox"));
@@ -38,7 +38,7 @@ function createMsgPanel(doc) {
 
 function appendContent(container, panel) {
   var tab = UIUtils.getSelectedTab(container.ownerDocument.defaultView);
-  var errorId = tab.getAttribute("${BASE_ID}-tab-error");
+  var errorId = tab.getAttribute("${BASE_DOM_ID}-tab-error");
   if (errorId.length === 0) {
     return null;
   }

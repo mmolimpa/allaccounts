@@ -45,7 +45,7 @@ var Main = {
     var ss = Cc["@mozilla.org/browser/sessionstore;1"].getService(Ci.nsISessionStore);
     try {
       // BUG can attr be ever removed from session?
-      ss.persistTabAttribute("multifox-tab-logins"); // TODO ${BASE_ID}-tab-users
+      ss.persistTabAttribute("${PERSIST_TAB_LOGINS}");
     } catch (ex) {
       console.error(ex);
     }

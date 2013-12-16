@@ -62,9 +62,9 @@ var UserState = {
     this.updateSessionStore(tabId);
 
     var tab = findTabById(tabId);
-    if (tab.hasAttribute("${BASE_ID}-tab-error")) {
+    if (tab.hasAttribute("${BASE_DOM_ID}-tab-error")) {
       // reset error icon
-      tab.removeAttribute("${BASE_ID}-tab-error");
+      tab.removeAttribute("${BASE_DOM_ID}-tab-error");
     }
   },
 
@@ -91,12 +91,13 @@ var UserState = {
     }
 
     var tab = findTabById(tabId);
+    var loginsAttr = "${PERSIST_TAB_LOGINS}";
     if (hasData) {
       var data = JSON.stringify(tabData.tabLogins);
-      tab.setAttribute("multifox-tab-logins", data);
+      tab.setAttribute(loginsAttr, data);
     } else {
-      if (tab.hasAttribute("multifox-tab-logins")) {
-        tab.removeAttribute("multifox-tab-logins");
+      if (tab.hasAttribute(loginsAttr)) {
+        tab.removeAttribute(loginsAttr);
       }
     }
   },

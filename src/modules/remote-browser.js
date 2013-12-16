@@ -57,7 +57,7 @@ function onNewDocument(win) {
 
   if (m_src !== null) {
     // TODO sendSyncMessage=undefined ==> disabled extension or exception in the parent process
-    if ((sendSyncMessageShim("${BASE_ID}-remote-msg", msgData, browser)[0]) !== null) {
+    if ((sendSyncMessageShim("${BASE_DOM_ID}-remote-msg", msgData, browser)[0]) !== null) {
       // TODO check if multifox should be disabled for this browser
       initDoc(win);
     }
@@ -66,7 +66,7 @@ function onNewDocument(win) {
 
   // ask for source
   msgData["initBrowser"] = true; // TODO "init-tab"
-  var rv = sendSyncMessageShim("${BASE_ID}-remote-msg", msgData, browser)[0];
+  var rv = sendSyncMessageShim("${BASE_DOM_ID}-remote-msg", msgData, browser)[0];
   if (rv !== null) {
     startTab(rv);
     initDoc(win);
@@ -89,7 +89,7 @@ function stopTab(src) {
   }
 
   forEachWindow(resetDoc, content);
-  removeMessageListener("${BASE_ID}-parent-msg", onParentMessage);
+  removeMessageListener("${BASE_DOM_ID}-parent-msg", onParentMessage);
   removeEventListener("DOMWindowCreated", onNewDocument, false);
   m_src = null;
   console.assert("initMultifox" in m_global, "stopTab fail m_global")
@@ -101,7 +101,7 @@ function stopTab(src) {
 
 
 function initDoc(win) {
-  var sandbox = Cu.Sandbox(win, {sandboxName: "${BASE_ID}-content", wantComponents:false});
+  var sandbox = Cu.Sandbox(win, {sandboxName: "${BASE_DOM_ID}-content", wantComponents:false});
   sandbox.window   = XPCNativeWrapper.unwrap(win);
   sandbox.document = XPCNativeWrapper.unwrap(win.document);
   sandbox.sendCmd = function(obj) {
@@ -120,13 +120,13 @@ function initDoc(win) {
       url: win.location.href
     };
     msgData.topUrl = win !== win.top ? win.top.location.href : "";
-    sendAsyncMessageShim("${BASE_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win));
+    sendAsyncMessageShim("${BASE_DOM_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win));
   }
 }
 
 
 function resetDoc(win, src) {
-  var sandbox = Cu.Sandbox(win, {sandboxName: "${BASE_ID}-content-reset"});
+  var sandbox = Cu.Sandbox(win, {sandboxName: "${BASE_DOM_ID}-content-reset"});
   sandbox.window = XPCNativeWrapper.unwrap(win);
   sandbox.document = XPCNativeWrapper.unwrap(win.document);
 
@@ -140,7 +140,7 @@ function resetDoc(win, src) {
       url:     win.location.href
     };
     msgData.topUrl = win !== win.top ? win.top.location.href : "";
-    sendAsyncMessageShim("${BASE_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win));
+    sendAsyncMessageShim("${BASE_DOM_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win));
   }
 }
 
@@ -155,7 +155,7 @@ function cmdContent(obj, win) {
   msgData.outer = winutils.outerWindowID; // TODO useless, inner is enough
   msgData.inner = winutils.currentInnerWindowID;
 
-  var remoteObj = sendSyncMessageShim("${BASE_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win))[0];
+  var remoteObj = sendSyncMessageShim("${BASE_DOM_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win))[0];
   if (remoteObj !== null) {
     // send remote data to page (e.g. cookie value)
     return remoteObj.responseData;

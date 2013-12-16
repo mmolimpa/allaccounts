@@ -81,9 +81,9 @@ var MainWindow = {
 
     // debug key
     var doc = win.document;
-    console.assert(doc.getElementById("${BASE_ID}-debug-key") === null, "key dupe id");
+    console.assert(doc.getElementById("${BASE_DOM_ID}-debug-key") === null, "key dupe id");
     var key = doc.getElementById("mainKeyset").appendChild(doc.createElement("key"));
-    key.setAttribute("id", "${BASE_ID}-debug-key"); // BUG it doesn't work after disable/enable
+    key.setAttribute("id", "${BASE_DOM_ID}-debug-key"); // BUG it doesn't work after disable/enable
     key.setAttribute("keycode", "VK_F4");
     key.setAttribute("oncommand", "(function(){})()"); // it doesn't work without that
     key.addEventListener("command", function() {
@@ -93,7 +93,7 @@ var MainWindow = {
 
 
   uninitWindow: function(win, reason) {
-    var key = win.document.getElementById("${BASE_ID}-debug-key");
+    var key = win.document.getElementById("${BASE_DOM_ID}-debug-key");
     key.parentNode.removeChild(key);
 
     ChromeRelatedEvents.uninitWindow(win);

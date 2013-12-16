@@ -68,7 +68,7 @@ function removeExtCookies() {
 
 function removeTabAttributes() {
   var attrs = [
-    "multifox-tab-logins",
+    "${PERSIST_TAB_LOGINS}",
     "multifox-tab-id-provider-tld-enc",
     "multifox-tab-id-provider-user-enc",
     "multifox-tab-current-tld",

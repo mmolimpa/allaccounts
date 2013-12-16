@@ -192,7 +192,7 @@ function enableErrorMsg(notSupportedFeature, msgData, tab) {
   msg.push("Desc: " + msgData.err);
   console.log(msg.join("\n"));
 
-  tab.setAttribute("${BASE_ID}-tab-error", notSupportedFeature);
+  tab.setAttribute("${BASE_DOM_ID}-tab-error", notSupportedFeature);
   updateUIAsync(tab, true);
 }
 
@@ -257,13 +257,14 @@ var util = {
 function debugData() {
   var logins = Object.create(null);
   var enumWin = UIUtils.getWindowEnumerator();
+  var loginsAttr = "${PERSIST_TAB_LOGINS}";
   while (enumWin.hasMoreElements()) {
     var tabList = UIUtils.getTabList(enumWin.getNext());
     for (var idx = tabList.length - 1; idx > -1; idx--) {
       var tab = tabList[idx];
-      if (tab.hasAttribute("multifox-tab-logins")) {
+      if (tab.hasAttribute(loginsAttr)) {
         // TODO compare attr & WinMap
-        logins[getIdFromTab(tab)] = JSON.parse(tab.getAttribute("multifox-tab-logins"));
+        logins[getIdFromTab(tab)] = JSON.parse(tab.getAttribute(loginsAttr));
       }
     }
   }
