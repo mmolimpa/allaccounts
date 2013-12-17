@@ -34,17 +34,6 @@ function appendContent(container, panel) {
   var desc;
   var header;
 
-  // logo
-  var box2 = container.appendChild(doc.createElement("hbox"));
-  box2.setAttribute("pack", "center");
-  var img = box2.appendChild(doc.createElement("image"));
-  img.setAttribute("src", "${PATH_CONTENT}/logo-popup.png");
-  img.setAttribute("width", "175");
-  img.setAttribute("height", "97");
-
-  desc = container.appendChild(doc.createElement("description"));
-  desc.appendChild(doc.createTextNode(util.getTextFrom("welcome.properties", "welcome.p1", "${EXT_NAME}")));
-
   // Getting Started
   header = container.appendChild(doc.createElement("label"));
   header.value = util.getTextFrom("welcome.properties", "welcome.p2.h");
@@ -55,7 +44,7 @@ function appendContent(container, panel) {
   desc.style.marginTop = "1ch";
   desc.appendChild(doc.createTextNode(util.getTextFrom("welcome.properties", "welcome.p2", "${EXT_NAME}")));
 
-  desc = container.appendChild(doc.createElement("description"))
+  desc = container.appendChild(doc.createElement("description"));
   desc.style.marginTop = "1ch";
   desc.appendChild(doc.createTextNode(util.getTextFrom("welcome.properties", "welcome.p3", util.getText("icon.user.new.label"))));
 }

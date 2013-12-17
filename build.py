@@ -17,7 +17,6 @@ b = build_tools.BuildExtension("src", "build")
 
 b.add_binary("icon.png")
 b.add_binary("content/favicon.ico")
-b.add_binary("content/logo-popup.png")
 
 b.add_text("install.rdf")
 b.add_text("chrome.manifest")
@@ -44,24 +43,24 @@ b.add_text("locale/${locale}/general.properties")
 b.add_text("locale/${locale}/about.properties")
 b.add_text("locale/${locale}/welcome.properties")
 
-b.set_var("EXT_VERSION", "2.1a1pre")
+b.set_var("EXT_VERSION", "2.1alpha1")
 verEx = build_tools.getVersionedString(changeset, b.get_var("EXT_VERSION"))
 
 if changeset == None:
-    b.set_var("SOURCE_URL", "https://github.com/hultmann/allaccounts/tree/master/src")
+    b.set_var("SOURCE_URL", "https://github.com/hultmann/allmyaccounts/tree/master/src")
     b.set_var("EXT_VERSION", verEx)
 else:
-    b.set_var("SOURCE_URL", "https://github.com/hultmann/allaccounts/tree/" + changeset)
+    b.set_var("SOURCE_URL", "https://github.com/hultmann/allmyaccounts/tree/" + changeset)
 
 
 b.set_var("EXT_ID",          "{42f25d10-4944-11e2-96c0-0b6a95a8daf0}")
-b.set_var("EXT_NAME",        "AllAccounts (Formerly Multifox 2 BETA)")
+b.set_var("EXT_NAME",        "All My Accounts (Formerly Multifox 2 BETA)")
 b.set_var("EXT_SITE",        "http://br.mozdev.org/multifox/all.html")
 b.set_var("APP_MIN_VERSION", "24.0")
 b.set_var("APP_MAX_VERSION", "28.*")
-b.set_var("CHROME_NAME",     "all-accounts")
-b.set_var("EXT_HOST",        "allaccounts-" + verEx)
-b.set_var("BASE_DOM_ID",     "all-accounts")
+b.set_var("CHROME_NAME",     "allmyaccounts")
+b.set_var("EXT_HOST",        "allmyaccounts-" + verEx)
+b.set_var("BASE_DOM_ID",     "allmyaccounts")
 
 b.set_var("PATH_CONTENT",    "chrome://"   + b.get_var("EXT_HOST") + "/content")
 b.set_var("PATH_LOCALE",     "chrome://"   + b.get_var("EXT_HOST") + "/locale")
