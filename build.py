@@ -55,7 +55,7 @@ else:
 
 b.set_var("EXT_ID",          "{42f25d10-4944-11e2-96c0-0b6a95a8daf0}")
 b.set_var("EXT_NAME",        "All My Accounts (Formerly Multifox 2 BETA)")
-b.set_var("EXT_SITE",        "http://br.mozdev.org/multifox/all.html")
+b.set_var("EXT_SITE",        "http://br.mozdev.org/multifox/all.html#allmyaccounts")
 b.set_var("APP_MIN_VERSION", "24.0")
 b.set_var("APP_MAX_VERSION", "28.*")
 b.set_var("CHROME_NAME",     "allmyaccounts")
