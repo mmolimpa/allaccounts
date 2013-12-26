@@ -15,6 +15,7 @@ Cu.import("resource://gre/modules/Services.jsm");
 
 #include "main.window.js"
 #include "main.network.js"
+#include "main.ChannelProperties.js"
 #include "main.script-injection.js"
 #include "main.ContentRelatedEvents.js"
 #include "main.ChromeRelatedEvents.js"

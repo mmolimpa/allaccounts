@@ -23,69 +23,54 @@ var NetworkObserver = {
     // nsIObserver
     observe: function HttpListeners_request(subject, topic, data) {
       var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
-      var ctx = getLoadContext(httpChannel)
-
-      if ((ctx === null) || ctx.usePrivateBrowsing) {
-        // safebrowsing, http://wpad/wpad.dat
-        return;
-      }
-
+      var myChannel = new ChannelProperties(httpChannel);
+      var uri = httpChannel.URI;
+      var isWin = false;
+      var fromContent = true;
+      var win = myChannel.linkedWindow;
       var docUser;
-      var isWin = isWindowChannel(httpChannel);
 
-      try{
-        var win = ctx.associatedWindow;
-      } catch (ex) {
-        // background thumbnailing?
-        // [nsIException: [Exception... "Component returned failure code: 0x8000ffff (NS_ERROR_UNEXPECTED)
-        console.log("request exception", httpChannel.URI.spec);
-        return;
-      }
-
-      if (win === null) {
-        console.trace("request win=null", httpChannel.URI.spec);
-        return;
-      }
-
-      if (UIUtils.isContentWindow(win)) {
-        if (isWin) {
-          // window/redir/download
-          docUser = NewDocUser.addDocumentRequest(fillDocReqData(win), httpChannel);
-        } else {
-          // css/js/xhr...
-          var winutils = getDOMUtils(win);
-          docUser = WinMap.getUserForAssetUri(winutils.currentInnerWindowID, httpChannel.URI);
-        }
-
-      } else {
-        var chromeWin = UIUtils.getTopLevelWindow(win);
-        if (chromeWin && UIUtils.isSourceWindow(chromeWin)) {
-          // view source window
-          console.log("REQUEST - viewsource", httpChannel.URI);
-          docUser = NewDocUser.viewSourceRequest(win, httpChannel.URI);
-        } else {
-          console.log("REQUEST - TAB NOT FOUND", httpChannel.URI, win);
-          return; // tab not found: request from chrome (favicon, updates, <link rel="next"...)
-        }
+      switch (myChannel.channelType) {
+        case myChannel.CHANNEL_CONTENT_ASSET:
+          docUser = WinMap.getUserForAssetUri(getDOMUtils(win).currentInnerWindowID, uri);
+          break;
+        case myChannel.CHANNEL_CONTENT_WIN:
+          docUser = NewDocUser.addDocumentRequest(fillDocReqData(win), uri);
+          isWin = true;
+          break;
+        case myChannel.CHANNEL_VIEW_SOURCE:
+          console.log("REQUEST - viewsource", uri);
+          docUser = NewDocUser.viewSourceRequest(win, uri);
+          fromContent = false;
+          break;
+        default: // myChannel.CHANNEL_UNKNOWN
+          // request from chrome (favicon, updates, <link rel="next"...)
+          // safebrowsing, http://wpad/wpad.dat
+          // private window
+          return;
       }
 
 
       if (docUser === null) {
-        // log to topData.thirdPartyUsers
-        UserState.addRequest(httpChannel.URI, win, isWin, null);
-        if ((docUser === null) && LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(httpChannel.URI.host)))) {
-          console.log("REQ ERR - login found but not used!", isWin, httpChannel.URI, win.location.href);
+        if (fromContent) {
+          // log to topData.thirdPartyUsers
+          UserState.addRequest(uri, win, isWin, null);
+          if (LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(uri.host)))) {
+            console.log("REQ ERR - login found but not used!", isWin, uri, win.location.href, getDOMUtils(win).currentInnerWindowID);
+          }
         }
         return; // send default cookies
       }
 
 
       // log to topData.thirdPartyUsers
-      var userHost = docUser.getHost(httpChannel.URI.host);
-      UserState.addRequest(httpChannel.URI, win, isWin, userHost.user);
+      var userHost = docUser.getHost(uri.host);
+      if (fromContent) {
+        UserState.addRequest(uri, win, isWin, userHost.user);
+      }
 
       /*
-      var myHeaders = HttpHeaders.fromRequest(httpChannel);
+      var myHeaders = myChannel.headersFromRequest();
       if (myHeaders["authorization"] !== null) {
         // docUser + authorization = not supported
         enableErrorMsgLocal("authorization", win);
@@ -103,52 +88,36 @@ var NetworkObserver = {
     // nsIObserver
     observe: function HttpListeners_response(subject, topic, data) {
       var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
-      var ctx = getLoadContext(httpChannel)
-      if ((ctx === null) || ctx.usePrivateBrowsing) {
-        return;
-      }
-
-      try{
-        var win = ctx.associatedWindow;
-      } catch (ex) {
-        // background thumbnailing?
-        // [nsIException: [Exception... "Component returned failure code: 0x8000ffff (NS_ERROR_UNEXPECTED)
-        console.log("response exception", httpChannel.URI.spec);
-        return;
-      }
-
-      if (win === null) {
-        console.trace("response win=null", httpChannel.URI.spec);
-        return;
-      }
-
-      if (UIUtils.isContentWindow(win) === false) {
-        return;
-      }
-
-      var isWin = isWindowChannel(httpChannel);
-      var winutils = getDOMUtils(win);
-
+      var myChannel = new ChannelProperties(httpChannel);
+      var uri = httpChannel.URI;
+      var win = myChannel.linkedWindow;
+      var winutils = win === null ? null : getDOMUtils(win);
       var docUser;
-      if (isWin) {
-        // window/redir/download
-        docUser = NewDocUser.addDocumentResponse(httpChannel,
-                                                 winutils.currentInnerWindowID,
-                                                 winutils.outerWindowID);
-      } else {
-        docUser = WinMap.getUserForAssetUri(winutils.currentInnerWindowID,
-                                            httpChannel.URI);
+
+      switch (myChannel.channelType) {
+        case myChannel.CHANNEL_CONTENT_ASSET:
+          docUser = WinMap.getUserForAssetUri(winutils.currentInnerWindowID, uri);
+          break;
+        case myChannel.CHANNEL_CONTENT_WIN:
+          docUser = NewDocUser.addDocumentResponse(httpChannel,
+                                                   winutils.currentInnerWindowID,
+                                                   winutils.outerWindowID);
+          break;
+        case myChannel.CHANNEL_VIEW_SOURCE:
+          throw new Error("_response => CHANNEL_VIEW_SOURCE");
+        default:
+          return;
       }
 
 
       if (docUser === null) {
-        if ((docUser === null) && LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(httpChannel.URI.host)))) {
-          console.log("RESPONSE ERR - login found but not used!", isWin, httpChannel.URI, win.location.href);
+        if (LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(uri.host)))) {
+          console.log("RESPONSE ERR - login found but not used!", uri, win.location.href, winutils.currentInnerWindowID);
         }
         return;
       }
 
-      var myHeaders = HttpHeaders.fromResponse(httpChannel);
+      var myHeaders = myChannel.headersFromResponse();
 
       var setCookies = myHeaders["set-cookie"];
       if (setCookies === null) {
@@ -163,47 +132,11 @@ var NetworkObserver = {
       // remove "Set-Cookie"
       httpChannel.setResponseHeader("Set-Cookie", null, false);
 
-      Cookies.setCookie(docUser, httpChannel.URI, setCookies, false);
+      Cookies.setCookie(docUser, uri, setCookies, false);
     }
   }
 };
 
-
-
-
-var HttpHeaders = {
-  visitLoop: {
-    values: null,
-    visitHeader: function(name, value) {
-      var n = name.toLowerCase();
-      if (n in this.values) {
-        this.values[n] = value;
-      }
-    }
-  },
-
-  /*
-  fromRequest: function(request) {
-    var nameValues = {
-      //"cookie": null, //for debug only
-      "authorization": null
-    }
-    this.visitLoop.values = nameValues;
-    request.visitRequestHeaders(this.visitLoop);
-    return nameValues;
-  },
-  */
-
-  fromResponse: function(response) {
-    var nameValues = {
-      "set-cookie": null,
-      "www-authenticate": null
-    }
-    this.visitLoop.values = nameValues;
-    response.visitResponseHeaders(this.visitLoop);
-    return nameValues;
-  }
-};
 
 
 function fillDocReqData(win) {
@@ -242,38 +175,4 @@ function fillDocReqData(win) {
     parentOuter: WinMap.TopWindowFlag,
     parentInner: WinMap.TopWindowFlag
   };
-}
-
-
-function isWindowChannel(channel) {
-  return (channel.loadFlags & Ci.nsIChannel.LOAD_DOCUMENT_URI) !== 0;
-}
-
-
-function getLoadContext(channel) {
-  if (channel.notificationCallbacks) {
-    try {
-      return channel
-              .notificationCallbacks
-              .getInterface(Ci.nsILoadContext);
-    } catch (ex) {
-      //console.trace("channel.notificationCallbacks " + "/" + channel.notificationCallbacks + "/" + channel.URI + "/" + ex);
-    }
-  }
-
-  if (channel.loadGroup && channel.loadGroup.notificationCallbacks) {
-    try {
-      return channel
-              .loadGroup
-              .notificationCallbacks
-              .getInterface(Ci.nsILoadContext);
-    } catch (ex) {
-      console.trace("channel.loadGroup " + channel.loadGroup + "/" + channel.URI.spec + "/" + ex);
-    }
-  }
-
-  //var isChrome = context.associatedWindow instanceof Ci.nsIDOMChromeWindow;
-  //return context.isContent ? context.associatedWindow : null;
-  //console.log("LOAD CONTEXT FAIL " + channel.URI);
-  return null; // e.g. <link rel=prefetch> <link rel=next> ...
 }

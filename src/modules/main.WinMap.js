@@ -42,7 +42,7 @@ var NewDocUser = {
   },
 
 
-  addDocumentRequest: function(msgData, channel) {
+  addDocumentRequest: function(msgData, requestURI) {
     var isTop = WinMap.isTabId(msgData.parentInner);
     var tldPrev = isTop ? CrossTldLogin.getPrevDocTld(msgData.outer) : null; // should be called before addToOuterHistory
 
@@ -50,7 +50,7 @@ var NewDocUser = {
       __proto__: null,
       type: "request-doc", // "request"
       visibleInnerId: msgData.visibleInner, // "previous" inner document
-      url:  channel.URI.spec // TODO inutil?
+      url:  requestURI.spec // TODO useless?
     };
 
     var outerData = WinMap.addToOuterHistory(entry, msgData.outer, msgData.parentOuter);
@@ -61,12 +61,12 @@ var NewDocUser = {
     var docUser;
     if (WinMap.isTabId(msgData.parentInner)) {
       // topInnerId is not valid, it doesn't exist (yet)
-      // channel is the new top document (or a download/redir, it is undefined)
+      // requestURI is the new top document (or a download/redir, it is undefined)
       topInnerId = WinMap.TopWindowFlag;
-      docUser = WinMap.findUser(channel.URI, topInnerId, msgData.outer);
+      docUser = WinMap.findUser(requestURI, topInnerId, msgData.outer);
     } else {
       topInnerId = WinMap.getTopInnerId(msgData.visibleInner);
-      docUser = WinMap.findUser(channel.URI, topInnerId);
+      docUser = WinMap.findUser(requestURI, topInnerId);
     }
 
     if (docUser === null) {
@@ -77,7 +77,7 @@ var NewDocUser = {
 
     if (isTop && (docUser === null)) {
       // BUG docUser from a logged in iframe never will be != null
-      docUser = CrossTldLogin.parse(tldPrev, channel.URI, msgData.outer, topInnerId);
+      docUser = CrossTldLogin.parse(tldPrev, requestURI, msgData.outer, topInnerId);
       if (docUser !== null) {
         entry["x-tld-login"] = true;
       }
