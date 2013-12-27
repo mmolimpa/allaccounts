@@ -174,19 +174,18 @@ function enableErrorMsg(notSupportedFeature, msgData, tab) {
   }
 
   if (notSupportedFeature === "sandbox") {
-    msg.push("Inner ID: " + msgData.innerId);
-    var innerObj = WinMap.getInnerEntry(msgData.innerId);
+    msg.push("Inner ID: " + msgData.inner);
+    var innerObj = WinMap.getInnerEntry(msgData.inner);
     var entry = {
       __proto__: null,
       type: "sandbox-error",
-      "inner-id": msgData.innerId,
+      "inner-id": msgData.inner,
       "error": msgData.err
     };
     if (WinMap.isFrameId(innerObj.parentInnerId)) {
       entry.isFrame = true;
     }
     WinMap.addToOuterHistory(entry, innerObj.outerId);
-    return;
   }
 
   msg.push("Desc: " + msgData.err);

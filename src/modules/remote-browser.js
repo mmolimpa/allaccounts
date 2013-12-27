@@ -115,8 +115,9 @@ function initDoc(win) {
   } catch (ex) {
     var msgData = {
       from: "error",
+      cmd:  "sandbox",
       err: ex.toString(),
-      innerId: getDOMUtils(win).currentInnerWindowID,
+      inner: getDOMUtils(win).currentInnerWindowID,
       url: win.location.href
     };
     msgData.topUrl = win !== win.top ? win.top.location.href : "";
@@ -124,7 +125,7 @@ function initDoc(win) {
   }
 }
 
-
+/*
 function resetDoc(win, src) {
   var sandbox = Cu.Sandbox(win, {sandboxName: "${BASE_DOM_ID}-content-reset"});
   sandbox.window = XPCNativeWrapper.unwrap(win);
@@ -135,15 +136,16 @@ function resetDoc(win, src) {
   } catch (ex) {
     var msgData = {
       from:    "error",
+      cmd:     "sandbox",
       err:     ex.toString(),
-      innerId: getDOMUtils(win).currentInnerWindowID,
+      inner:   getDOMUtils(win).currentInnerWindowID,
       url:     win.location.href
     };
     msgData.topUrl = win !== win.top ? win.top.location.href : "";
     sendAsyncMessageShim("${BASE_DOM_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win));
   }
 }
-
+*/
 
 function cmdContent(obj, win) {
   var msgData = obj;

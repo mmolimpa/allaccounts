@@ -345,11 +345,6 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  getTopOuterIdFromInnerId: function(innerId) {
-    return this._inner[this.getTopInnerId(innerId)].outerId;
-  },
-
-
   getTopInnerId: function(innerId) {
     console.assert(typeof innerId === "number", "getTopInnerId invalid param", innerId, typeof innerId);
     var all = this._inner;
@@ -495,18 +490,6 @@ var WinMap = { // stores all current outer/inner windows
       userId = new UserId(obj.encodedUser, obj.encodedTld);
       UserState.setTabDefaultFirstParty(tld, tabId, userId);
     }
-  },
-
-
-  setTabAsNewAccount: function(tab) { // used by moveTabToDefault
-    var topInnerId = getCurrentTopInnerId(tab);
-    var topData = WinMap.getInnerEntry(topInnerId);
-    console.assert("docUserObj" in topData, "setTabAsNewAccount docUser missing", topInnerId, topData);
-    var docUser = topData.docUserObj;
-    var user = docUser.user.toNewAccount();
-    var tabId = this.getTopOuterIdFromInnerId(topInnerId);
-    UserState.setTabDefaultFirstParty(docUser.ownerTld, tabId, user);
-    return new DocumentUser(user, docUser.ownerTld, topInnerId);
   }
 
 };

@@ -9,8 +9,6 @@
 //     <image/>
 //     <vbox>  <== box3
 //       <description/>
-//       <hbox>  <== box4
-//         <button/>
 
 function appendErrorToPanel(box, panel) {
   var doc = box.ownerDocument;
@@ -30,45 +28,4 @@ function appendErrorToPanel(box, panel) {
   var txt = util.getText("icon.panel.unsupported-general.label", "${EXT_NAME}");
   box3.appendChild(doc.createElement("description"))
       .appendChild(doc.createTextNode(txt));
-
-  var but = box3.appendChild(doc.createElement("hbox")).appendChild(doc.createElement("button"));
-  but.setAttribute("label", util.getText("icon.panel.make-tab-default.button.label", "${EXT_NAME}"));
-  but.setAttribute("accesskey", util.getText("icon.panel.make-tab-default.button.accesskey"));
-  but.addEventListener("command", function(evt) {
-    panel.hidePopup();
-    moveTabToDefault(but);
-  }, false);
-
-  return but;
-}
-
-
-function moveTabToDefault(button) {
-  var tab = UIUtils.getSelectedTab(button.ownerDocument.defaultView);
-  var docUser = WinMap.setTabAsNewAccount(tab);
-  updateUIAsync(tab, true); // show new user now (see loadTab function)
-
-  moveData_toDefault(docUser);
-  util.reloadTab(tab.linkedBrowser);
-}
-
-
-function moveData_toDefault(docUser) {
-  var tabTld = docUser.ownerTld;
-
-  //removeTldData_cookies(tabTld);
-
-  var all = removeTldData_cookies(docUser.appendLogin(tabTld));
-  console.log("===>moveData_toDefault", tabTld, docUser.toString(), "cookies:", all.length);
-  var cookie;
-  var realHost;
-  for (var idx = all.length - 1; idx > -1; idx--) {
-    cookie = all[idx];
-    realHost = UserUtils.getRealHost(cookie.host);
-    if (realHost !== null) {
-      copyCookieToNewHost(cookie, realHost);
-    }
-  }
-
-  var all2 = removeTldData_LS(tabTld);
 }

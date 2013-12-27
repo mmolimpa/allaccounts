@@ -309,7 +309,7 @@ var RemoteBrowserMethod = {
   "error": function(msgData, browser) {
     //console.assert(message.sync === false, "use sendAsyncMessage!");
     var tab = UIUtils.getLinkedTabFromBrowser(browser);
-    enableErrorMsg("sandbox", msgData, tab);
+    enableErrorMsg(msgData.cmd, msgData, tab);
     return null;
   }
 

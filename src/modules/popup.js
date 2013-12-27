@@ -21,11 +21,7 @@ function createMsgPanel(doc) {
   var container = panel.appendChild(doc.createElement("vbox"));
   container.style.width = "50ch";
 
-  var but = appendContent(container, panel);
-
-  panel.addEventListener("popupshown", function(evt) {
-    but.focus();
-  }, false);
+  appendContent(container, panel);
 
   panel.addEventListener("popuphidden", function(evt) {
     panel.parentNode.removeChild(panel);
