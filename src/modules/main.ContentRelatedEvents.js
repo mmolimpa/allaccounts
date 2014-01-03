@@ -195,7 +195,7 @@ var RemoteBrowserMethod = {
       case "get":
         var val = "foo@documentCookie";
         try {
-          var cookie = Cookies.getCookie(true, docUser.appendLoginToUri(msgData.uri));
+          var cookie = Cookies.getCookie(true, docUser.wrapUri(msgData.uri));
           val = cookie === null ? "" : cookie;
         } catch (ex) {
           console.trace(ex);
@@ -213,7 +213,7 @@ var RemoteBrowserMethod = {
     console.assert(docUser !== null, "docUser should be valid");
     console.assert(docUser.user.isNewAccount === false, "NewAccount should not happen here");
 
-    var uri = docUser.appendLoginToUri(msgData.uri);
+    var uri = docUser.wrapUri(msgData.uri);
     var principal = Services.scriptSecurityManager.getNoAppCodebasePrincipal(uri);
     var storage = Services.domStorageManager.createStorage(principal, ""); // nsIDOMStorage
 

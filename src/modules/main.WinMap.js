@@ -353,7 +353,7 @@ var WinMap = { // stores all current outer/inner windows
     }
     console.assert(innerId in all, "getTopInnerId not found", innerId);
     var win = all[innerId];
-    if (!win) console.trace(win);
+    if (!win) console.trace("win undefined");
     while (WinMap.isFrameId(win.parentInnerId)) {
       innerId = win.parentInnerId;
       win = all[innerId];
@@ -410,8 +410,9 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  getNextSavedUser: function(innerId) {
+  getNextSavedUser: function(id) {
     var entry;
+    var innerId = id;
     while (innerId !== WinMap.TopWindowFlag) {
       entry = this.getInnerEntry(innerId);
       if ("docUserObj" in entry) {
@@ -429,7 +430,6 @@ var WinMap = { // stores all current outer/inner windows
     var docUser = this.getSavedUser(innerId);
     if (docUser !== null) {
       // BUG? facebook img inside twitter ignores facebook id?
-      // ==> it doesn't seem to care, HostJar won't use docUser.
       return docUser;
     }
 
@@ -438,12 +438,15 @@ var WinMap = { // stores all current outer/inner windows
     // resUri could be a logged in tld (different from anonymous innerId)
     var topInnerId = WinMap.getTopInnerId(innerId);
     var assetUser = this.findUser(resUri, topInnerId);
-    if (assetUser === null) {
-      return null;
-    }
+    return assetUser === null ? null : this.getAsAnonUser(innerId);
+  },
 
-    // fake a docUser
-    var uri = Services.io.newURI(WinMap.getInnerEntry(innerId).url, null, null);
+
+  getAsAnonUser: function(innerId) {
+    var topInnerId = WinMap.getTopInnerId(innerId);
+    var entry = WinMap.getInnerEntry(innerId);
+    console.assert(("docUserObj" in entry) === false, "innerId is not anon", innerId, entry);
+    var uri = Services.io.newURI(entry.url, null, null);
     var tld = getTldFromUri(uri);
     if (tld === null) {
       // "about:"

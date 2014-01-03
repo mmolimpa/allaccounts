@@ -74,6 +74,8 @@ function DocumentUser(user, plainDocTld, topInnerId) {
   console.assert(typeof user        === "object", "invalid user =", user);
   console.assert(typeof plainDocTld === "string", "invalid plainDocTld =", plainDocTld);
   console.assert(typeof topInnerId  === "number", "invalid topInnerId =", topInnerId);
+  console.assert(getTldFromHost(plainDocTld) === plainDocTld, "plainDocTld is not a TLD", plainDocTld);
+
   this._user = user; // may be null (anon doc)
   this._topInnerId = topInnerId;
   this._ownerDocTld = plainDocTld;
@@ -83,6 +85,7 @@ function DocumentUser(user, plainDocTld, topInnerId) {
   if (WinMap.isInvalidTopInnerId(topInnerId)) {
     // top request: topInnerId is undefined (it won't be used anyway)
     this._topDocTld = plainDocTld;
+    this._1stPartyTldEncoded = StringEncoding.encode(plainDocTld);
     return;
   }
 
@@ -93,10 +96,18 @@ function DocumentUser(user, plainDocTld, topInnerId) {
   if (this._topDocTld === null) {
     this._topDocTld = getTldForUnsupportedScheme(topUri); // "about:"
   }
+  this._1stPartyTldEncoded = StringEncoding.encode(this._topDocTld);
 }
 
 
 DocumentUser.prototype = {
+  _user: null,
+  _topInnerId: 0,
+  _topDocTld: null, // _1stPartyTldPlain
+  _1stPartyTldEncoded: null,
+  _ownerDocTld: null,
+  _ownerEncodedDocTld: null,
+
 
   toString: function() {
     return JSON.stringify(this);
@@ -104,15 +115,11 @@ DocumentUser.prototype = {
 
 
   toJSON: function() {
-    var hostJar = new HostJar(this._ownerDocTld, this);
     return {
       "x-topJar":   this._topDocTld,
       "x-ownerTld": this._ownerDocTld,
       "topInnerId": this._topInnerId,
-      "x-jar-mode": hostJar._mode,
-      "x-jar-user": hostJar._user,
-      "x-jar-top":  hostJar._tldTop,
-      "x-jar-host": hostJar.toJar(),
+      "x-jar-host": this.wrapHost(this._ownerDocTld),
       "x-user": this.user ? (this.user.plainName + " " + this.user.plainTld) : "null"
     };
   },
@@ -121,6 +128,11 @@ DocumentUser.prototype = {
   get topDocId() {
     console.assert(this._topInnerId !== WinMap.TopWindowFlag, "_topInnerId is not valid");
     return this._topInnerId;
+  },
+
+
+  is1stParty: function(tld) {
+    return tld === this._topDocTld;
   },
 
 
@@ -139,108 +151,64 @@ DocumentUser.prototype = {
   },
 
 
-  getHost: function(host) {
-    return new HostJar(host, this);
+  findHostUser: function(hostTld) {
+    if (hostTld === this.ownerTld) {
+      return this.user; // valid, same top id - may be null
+    }
+
+    // different host: signed in or anon?
+    var hostUri = Services.io.newURI("http://" + hostTld, null, null);
+    var hostDocUser = WinMap.findUser(hostUri, this.topDocId);
+    return hostDocUser === null ? null : hostDocUser.user;
   },
 
 
-  appendLoginToUri: function(uri) {
+  wrapUri: function(uri) {
     var u = uri.clone();
-    u.host = this.getHost(uri.host).toJar();
+    u.host = this.wrapHost(uri.host);
     return u;
   },
 
 
-  appendLogin: function(assetDomain) {
-    console.assert(typeof assetDomain === "string", "invalid appendLogin =", assetDomain);
-    return this.getHost(assetDomain).toJar();
-  }
+  wrapHost: function(host) {
+    console.assert(typeof host === "string", "host should be a string", host);
+    var hostTld = getTldFromHost(host);
+    var hostUsr = this.findHostUser(hostTld);
 
-
-};
-
-
-
-function HostJar(host, docUser) {
-  console.assert(docUser !== null, "docUser should not be null");
-  this._host = host;
-  var tld = getTldFromHost(host);
-
-  var hostUser;
-  if (tld === docUser.ownerTld) {
-    // 1st-party host
-    hostUser = docUser;
-    this._hostIsAnon = false;
-
-  } else {
-    var assetUri = Services.io.newURI("http://" + tld, null, null);
-    hostUser = WinMap.findUser(assetUri, docUser.topDocId);
-    this._hostIsAnon = hostUser === null;
-    if (this._hostIsAnon) {
-      this._handleAnon3rdPartyHost(docUser);
-      return;
-    }
-    // tld="twitter.com" doc="facebook.com"
-  }
-
-
-  if (hostUser.user.isNewAccount) {
-    if (tld === docUser._topDocTld) {
-      this._mode = "by_user";     // topdoc=google.com img=www.google.com
-      this._user = hostUser.user;
-      this._tldUrl = tld;
-      this._tldTop = null;
-    } else {
-      // 3rd-party
-      this._mode = "by_top";      // topdoc=whatever.com img=www.google.com
-      this._user = hostUser.user; // not used by string; flag for addRequest
-      this._tldTop = docUser._topDocTld;
+    // host: anon.com
+    if (hostUsr === null) {
+      if (this.is1stParty(hostTld)) {
+        // anon & 1st-party
+        return host;
+      } else {
+        // anon & 3rd-party
+        return this._user === null ? this._wrap1stPartyAnon(host)
+                                   : this._wrap1stPartyAndWindowUser(host, this._user);
+      }
     }
 
-  } else {
-    this._mode = "by_user";       // topdoc=whatever.com img=www.google.com
-    this._user = hostUser.user;
-    this._tldUrl = tld;
-    this._tldTop = null;
-  }
-}
-
-
-HostJar.prototype = {
-
-  _handleAnon3rdPartyHost: function(docUser) {
-    this._tldTop = docUser._topDocTld;
-    if (docUser.user === null) {
-      this._mode = "nop";    // topdoc=www.foo.com frame=www.foo.com img=www.bar.com
-      this._user = null;
-    } else if (docUser.user.isNewAccount) {
-      this._mode = "by_top";            // topdoc=www.google.com img=www.foo.com
-      this._user = null;
+    // host: facebook.com
+    if (hostUsr.isNewAccount) {
+      return this.is1stParty(hostTld) ? host : this._wrap1stPartyAnon(host);
     } else {
-      this._mode = "by_inherited_user"; // topdoc=www.google.com, img=www.foo.com
-      this._user = docUser.user;
+      return this._wrapHostUser(host, hostTld, hostUsr);
     }
   },
 
 
-  get user() {
-    return this._hostIsAnon ? null : this._user;
+  _wrap1stPartyAnon: function(host) {
+    return host + "." + this._1stPartyTldEncoded + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
   },
 
 
-  toJar: function() {
-    switch (this._mode) {
-      case "nop":
-        return this._host;
-      case "by_top":
-        return this._host + "." + StringEncoding.encode(this._tldTop) + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
-      case "by_inherited_user":
-        return this._host + "." + StringEncoding.encode(this._tldTop) + "-" + this._user.encodedName + "-" + this._user.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
-      case "by_user":
-        // We need to use tld(host) ==> otherwise, we couldn't (easily) locate the cookie for different subdomains
-        return this._host + "." + StringEncoding.encode(this._tldUrl)  + "-" + this._user.encodedName + "-" + this._user.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_LOGGEDIN}";
-    }
-    throw new Error(this._mode);
+  _wrap1stPartyAndWindowUser: function(host, usr) {
+    return host + "." + this._1stPartyTldEncoded + "-" + usr.encodedName + "-" + usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
+  },
+
+
+  _wrapHostUser: function(host, hostTld, usr) {
+    // We need to use tld(host) ==> otherwise, we couldn't (easily) locate the cookie for different subdomains
+    return host + "." + StringEncoding.encode(hostTld)   + "-" + usr.encodedName + "-" + usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_LOGGEDIN}";
   }
 
 };

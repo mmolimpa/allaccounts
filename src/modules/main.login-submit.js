@@ -100,7 +100,7 @@ function copyDataToAnotherUser(tabTld, newLogin, prevLogin) {
     return; // same user, do nothing
   }
 
-  var tld = prevLogin.appendLogin(tabTld);
+  var tld = prevLogin.wrapHost(tabTld);
   // don't remove data from current user, it may contain data used by other apps
   // or by the same app in a different tab
   // some cookies may be unrelated to this login
@@ -114,7 +114,7 @@ function copyDataToAnotherUser(tabTld, newLogin, prevLogin) {
     cookie = all[idx];
     realHost = UserUtils.getRealHost(cookie.host);
     if (realHost !== null) {
-      copyCookieToNewHost(cookie, newLogin.appendLogin(realHost));
+      copyCookieToNewHost(cookie, newLogin.wrapHost(realHost));
     }
   }
 
@@ -131,7 +131,7 @@ function copyData_fromDefault(domain, docUser) { // BUG if tabLogin.plainUser=""
   var cookie;
   for (var idx = all.length - 1; idx > -1; idx--) {
     cookie = all[idx];
-    copyCookieToNewHost(cookie, docUser.appendLogin(cookie.host));
+    copyCookieToNewHost(cookie, docUser.wrapHost(cookie.host));
   }
 
   console.log("copyData_fromDefault 3");

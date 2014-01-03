@@ -38,7 +38,7 @@ var Cookies = {
   },
 
   setCookie: function(docUser, originalUri, originalCookie, fromJs) {
-    var uri = docUser.appendLoginToUri(originalUri);
+    var uri = docUser.wrapUri(originalUri);
     var val = convertCookieDomain(originalCookie, docUser);
 
     if (this._prefListener.behavior === 0) {
@@ -108,7 +108,7 @@ function convertCookieDomain(cookieHeader, docUser) {
     var myCookie = objCookies.getCookieByIndex(idx);
     var realDomain = myCookie.getStringProperty("domain");
     if (realDomain.length > 0) {
-      myCookie.defineMeta("domain", docUser.appendLogin(realDomain));
+      myCookie.defineMeta("domain", docUser.wrapHost(realDomain));
       newCookies[idx] = myCookie.toHeaderLine();
     } else {
       newCookies[idx] = myCookie.raw;
