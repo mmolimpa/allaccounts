@@ -38,8 +38,9 @@ var Cookies = {
   },
 
   setCookie: function(docUser, originalUri, originalCookie, fromJs) {
+    var is3rdParty = !docUser.is1stParty(getTldFromHost(originalUri.host)); // TODO
+    var val = convertCookieDomain(originalCookie, docUser, is3rdParty);
     var uri = docUser.wrapUri(originalUri);
-    var val = convertCookieDomain(originalCookie, docUser);
 
     if (this._prefListener.behavior === 0) {
       this._setCookie(fromJs, uri, val);
@@ -99,20 +100,21 @@ var Cookies = {
 };
 
 
-function convertCookieDomain(cookieHeader, docUser) {
-  var objCookies = new SetCookieParser(cookieHeader, true);
+function convertCookieDomain(cookieHeader, docUser, is3rdParty) {
+  var objCookies = new SetCookieParser(cookieHeader);
   var len = objCookies.length;
   var newCookies = new Array(len);
 
   for (var idx = 0; idx < len; idx++) {
     var myCookie = objCookies.getCookieByIndex(idx);
+    if (is3rdParty) {
+      myCookie.defineMeta("expires", "");
+    }
     var realDomain = myCookie.getStringProperty("domain");
     if (realDomain.length > 0) {
       myCookie.defineMeta("domain", docUser.wrapHost(realDomain));
-      newCookies[idx] = myCookie.toHeaderLine();
-    } else {
-      newCookies[idx] = myCookie.raw;
     }
+    newCookies[idx] = myCookie.toHeaderLine();
   }
 
   return newCookies.join("\n");//objCookies.toHeader();
@@ -124,31 +126,26 @@ function toLines(txt) {
 }
 
 
-function SetCookieParser(cookieHeader, isSetCookie) { // TODO remove isSetCookie
-  this.m_hasMeta = isSetCookie;
+function SetCookieParser(cookieHeader) {
   this._allCookies = [];
   if (cookieHeader !== null) {
     var lines = toLines(cookieHeader);
     var len = lines.length;
-    if (isSetCookie) {
-      for (var idx = 0; idx < len; idx++) {
-        this.parseLineSetCookie(lines[idx]);
-      }
-    } else {
-      for (var idx = 0; idx < len; idx++) {
-        this.parseLineCookie(lines[idx]);
-      }
+    for (var idx = 0; idx < len; idx++) {
+      this._parseLineSetCookie(lines[idx]);
     }
   }
 }
 
 SetCookieParser.prototype = {
-  parseLineSetCookie: function(headerLine) {
-    var unit = new CookieUnit(headerLine);
+  _allCookies: null,
+
+  _parseLineSetCookie: function(headerLine) {
+    var unit = new CookieBuilder();
     var items = headerLine.split(";");
 
     for (var idx = 0, len = items.length; idx < len; idx++) {
-      var pair = splitValueName(items[idx]);
+      var pair = this._splitValueName(items[idx]);
       var name = pair[0];
       var value = pair[1]; // null ==> name=HttpOnly, secure etc
 
@@ -167,15 +164,32 @@ SetCookieParser.prototype = {
     this._allCookies.push(unit);
   },
 
-  parseLineCookie: function(headerLine) {
-    var items = headerLine.split(";");
-    for (var idx = 0, len = items.length; idx < len; idx++) {
-      var unit = CookieUnit(items[idx]);
-      var pair = splitValueName(items[idx]);
-      unit.defineValue(pair[0], pair[1]);
-      this._allCookies.push(unit);
+
+  _splitValueName: function(cookie) {
+    var idx = cookie.indexOf("=");
+    if (idx === -1) {
+      return [cookie.trim(), null];
     }
+
+    // "a=bcd=e".split("=",2) returns [a,bcd]
+    //   "abcde".split("=",2) returns [abcde]
+
+    // MY =
+    // 012^-----idx=3 length=4
+
+    // MY =a:1=6
+    // 012^-----idx=3 length=9
+
+    var pair = ["", ""];
+    pair[0] = cookie.substring(0, idx).trim();
+    idx++;
+    if (idx < cookie.length) {
+      pair[1] = cookie.substring(idx);
+    }
+
+    return pair;
   },
+
 
   /*
   toHeader: function() {
@@ -201,22 +215,13 @@ SetCookieParser.prototype = {
   }
 };
 
-function CookieUnit(line) {
-  this._data = {//instance value
-    "_src": line
-  };
+
+function CookieBuilder() {
+  this._data = Object.create(null); // instance value
 }
 
-CookieUnit.prototype = {
+CookieBuilder.prototype = {
   _data: null,
-
-  clone: function() {
-    var c = new CookieUnit();
-    for (var n in this._data) {
-      c._data[n] = this._data[n];
-    }
-    return c;
-  },
 
   get name() {
     var rv = this._data["_name"];
@@ -228,10 +233,6 @@ CookieUnit.prototype = {
     return rv ? rv : "";
   },
 
-  get raw() {
-    return this._data["_src"];
-  },
-
   defineValue: function(name, val) {
     this._data["_name"] = name;
     this._data["_value"] = val;
@@ -239,17 +240,9 @@ CookieUnit.prototype = {
 
   //"secure":
   //"httponly":
-  hasBooleanProperty: function(name) {
+  _hasBooleanProperty: function(name) {
     //name = name.toLowerCase();
     return name in this._data;
-  },
-
-  setBooleanProperty: function(name, def) {
-    if (def) {
-      this._data[name] = null;
-    } else {
-      delete this._data[name];
-    }
   },
 
   //"expires":
@@ -279,15 +272,15 @@ CookieUnit.prototype = {
     var props;
 
     props = ["secure", "httponly"];
-    for (var idx = 0, len = props.length; idx < len; idx++) {
+    for (var idx = props.length - 1; idx > -1; idx--) {
       var propName = props[idx];
-      if (this.hasBooleanProperty(propName)) {
+      if (this._hasBooleanProperty(propName)) {
         buf.push(propName.toUpperCase());
       }
     }
 
     props = ["expires", "path", "domain"];
-    for (var idx = 0, len = props.length; idx < len; idx++) {
+    for (var idx = props.length - 1; idx > -1; idx--) {
       var propName = props[idx];
       var val = this.getStringProperty(propName);
       if (val.length > 0) {
@@ -298,30 +291,3 @@ CookieUnit.prototype = {
     return buf.join(";");
   }
 };
-
-
-function splitValueName(cookie) {
-  var idx = cookie.indexOf("=");
-  if (idx === -1) {
-    return [cookie.trim(), null];
-  }
-
-  // "a=bcd=e".split("=",2) returns [a,bcd]
-  //   "abcde".split("=",2) returns [abcde]
-
-
-  // MY =
-  // 012^-----idx=3 length=4
-
-  // MY =a:1=6
-  // 012^-----idx=3 length=9
-
-  var pair = ["", ""];
-  pair[0] = cookie.substring(0, idx).trim();
-  idx++;
-  if (idx < cookie.length) {
-    pair[1] = cookie.substring(idx);
-  }
-
-  return pair;
-}
