@@ -185,7 +185,6 @@ var RemoteBrowserMethod = {
   cookie: function(msgData) {
     var docUser = WinMap.getSavedUser(msgData.inner);
     console.assert(docUser !== null, "docUser should be valid");
-    console.assert(docUser.user.isNewAccount === false, "NewAccount should not happen here");
 
     switch (msgData.cmd) {
       case "set":
@@ -211,7 +210,6 @@ var RemoteBrowserMethod = {
   localStorage: function(msgData) {
     var docUser = WinMap.getSavedUser(msgData.inner);
     console.assert(docUser !== null, "docUser should be valid");
-    console.assert(docUser.user.isNewAccount === false, "NewAccount should not happen here");
 
     var uri = docUser.wrapUri(msgData.uri);
     var principal = Services.scriptSecurityManager.getNoAppCodebasePrincipal(uri);

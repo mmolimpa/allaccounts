@@ -71,7 +71,9 @@ var SubmitObserver = {
       // Two new users: NewAccount & userId
       var newUser = new DocumentUser(docUser.user.toNewAccount(), tldDoc, topInnerId);
       copyData_fromDefault(tldDoc, docUser); // copy current cookies to new user
-      copyData_fromDefault(tldDoc, newUser); // copy current cookies to NewAccount
+
+      // currently useless, "new account" command will remove all cookies
+      //copyData_fromDefault(tldDoc, newUser); // copy current cookies to NewAccount
     } else {
       copyDataToAnotherUser(tldDoc, docUser, currentDocUser);
     }

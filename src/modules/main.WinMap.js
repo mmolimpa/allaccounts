@@ -33,12 +33,7 @@ var NewDocUser = {
       docUser = WinMap.getNextSavedUser(msgData.parentInner);
     }
 
-    if ((docUser === null) || docUser.user.isNewAccount) {
-      return false; // anon tab (docUser=null or NewAccount) => don't customize
-    }
-
-    outerEntry["x-doc-customized"] = true;
-    return true;
+    return docUser !== null;
   },
 
 
@@ -549,7 +544,6 @@ var DebugWinMap = {
       usedInners.push(innerId);
       var s = padding;
       s += "x-deleted"        in obj ? "-" : "*";
-      s += "x-doc-customized" in obj ? "x" : "*";
 
       s += " " + intOuterId + "[" + innerId + "] ";
       if ("docUserObj" in obj) {

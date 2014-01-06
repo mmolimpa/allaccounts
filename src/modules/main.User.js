@@ -132,6 +132,7 @@ DocumentUser.prototype = {
 
 
   is1stParty: function(tld) {
+    console.assert(getTldFromHost(tld) === tld, "tld is not a TLD", tld);
     return tld === this._topDocTld;
   },
 
@@ -189,9 +190,10 @@ DocumentUser.prototype = {
 
     // host: facebook.com
     if (hostUsr.isNewAccount) {
-      return this.is1stParty(hostTld) ? host : this._wrap1stPartyAnon(host);
+      return this.is1stParty(hostTld) ? this._wrapHostUser(host, hostUsr, hostTld) // NewAccount
+                                      : this._wrap1stPartyAnon(host);
     } else {
-      return this._wrapHostUser(host, hostTld, hostUsr);
+      return this._wrapHostUser(host, hostUsr, hostTld);
     }
   },
 
@@ -202,13 +204,14 @@ DocumentUser.prototype = {
 
 
   _wrap1stPartyAndWindowUser: function(host, usr) {
-    return host + "." + this._1stPartyTldEncoded + "-" + usr.encodedName + "-" + usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
+    return host + "." + this._1stPartyTldEncoded       + "-" + usr.encodedName + "-" + usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
   },
 
 
-  _wrapHostUser: function(host, hostTld, usr) {
+  _wrapHostUser: function(host, usr, hostTld) {
     // We need to use tld(host) ==> otherwise, we couldn't (easily) locate the cookie for different subdomains
-    return host + "." + StringEncoding.encode(hostTld)   + "-" + usr.encodedName + "-" + usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_LOGGEDIN}";
+    return host + "." + StringEncoding.encode(hostTld) + "-" + usr.encodedName + "-" + usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_LOGGEDIN}";
+    //TODO NewAccount return host + "." + StringEncoding.encode(hostTld) + "-" usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_LOGGEDIN}";
   }
 
 };
