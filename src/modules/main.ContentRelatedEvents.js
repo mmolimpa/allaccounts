@@ -213,7 +213,17 @@ var RemoteBrowserMethod = {
 
     var uri = docUser.wrapUri(msgData.uri);
     var principal = Services.scriptSecurityManager.getNoAppCodebasePrincipal(uri);
-    var storage = Services.domStorageManager.createStorage(principal, ""); // nsIDOMStorage
+    var storage; // nsIDOMStorage
+
+    if (docUser.is1stParty(getTldFromHost(msgData.uri.host))) {
+      storage = Services.domStorageManager.createStorage(principal, "");
+    } else {
+      // TODO one storage per doc document
+      console.log("localStorage 3rd-party", msgData.uri.host, msgData.cmd);
+      storage = Cc["@mozilla.org/dom/sessionStorage-manager;1"]
+                  .createInstance(Ci.nsIDOMStorageManager)
+                  .createStorage(principal, "");
+    }
 
     var rv = null;
     var oldVal;
