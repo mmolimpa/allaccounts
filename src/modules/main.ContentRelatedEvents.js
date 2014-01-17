@@ -150,11 +150,10 @@ var ContentRelatedEvents = {
           // http top doc from cache: update icon
           var browser = UIUtils.getParentBrowser(win);
           if (UIUtils.isContentBrowser(browser)) {
-            var innerId = getDOMUtils(win).currentInnerWindowID;
-            var data = WinMap.getInnerEntry(innerId);
-            if ("docUserObj" in data) {
-              var tabId = WinMap.getTabId(data.outerId);
-              var docUser = data.docUserObj;
+            var innerWin = WinMap.getInnerWindowFromObj(win);
+            if ("docUserObj" in innerWin) {
+              var tabId = innerWin.topWindow.outerId;
+              var docUser = innerWin.docUserObj;
               UserState.setTabDefaultFirstParty(docUser.ownerTld, tabId, docUser.user); // BUG [?] a 3rd party iframe may become the default
             }
             var tab = UIUtils.getLinkedTabFromBrowser(browser);
@@ -218,6 +217,7 @@ var RemoteBrowserMethod = {
     if (docUser.is1stParty(getTldFromHost(msgData.uri.host))) {
       storage = Services.domStorageManager.createStorage(principal, "");
     } else {
+      // BUG only for anon 3rd-party!
       // TODO one storage per doc document
       console.log("localStorage 3rd-party", msgData.uri.host, msgData.cmd);
       storage = Cc["@mozilla.org/dom/sessionStorage-manager;1"]

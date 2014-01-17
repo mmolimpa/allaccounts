@@ -89,13 +89,11 @@ function DocumentUser(user, plainDocTld, topInnerId) {
     return;
   }
 
-  var topData = WinMap.getInnerEntry(topInnerId);
-  console.assert(WinMap.isTabId(topData.parentInnerId), "not a top id", user, plainDocTld, topInnerId);
-  var topUri = Services.io.newURI(topData.url, null, null);
-  this._topDocTld = getTldFromUri(topUri);
-  if (this._topDocTld === null) {
-    this._topDocTld = getTldForUnsupportedScheme(topUri); // "about:"
-  }
+  var topData = WinMap.getInnerWindowFromId(topInnerId);
+  console.assert(topData.isTop, "not a top id", user, plainDocTld, topInnerId);
+  this._topDocTld = topData.eTld !== null
+                  ? topData.eTld
+                  : getTldForUnsupportedScheme(topData.originalUri); // "about:"
   this._1stPartyTldEncoded = StringEncoding.encode(this._topDocTld);
 }
 

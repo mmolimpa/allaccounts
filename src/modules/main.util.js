@@ -175,14 +175,14 @@ function enableErrorMsg(notSupportedFeature, msgData, tab) {
 
   if (notSupportedFeature === "sandbox") {
     msg.push("Inner ID: " + msgData.inner);
-    var innerObj = WinMap.getInnerEntry(msgData.inner);
+    var innerObj = WinMap.getInnerWindowFromId(msgData.inner);
     var entry = {
       __proto__: null,
       type: "sandbox-error",
       "inner-id": msgData.inner,
       "error": msgData.err
     };
-    if (WinMap.isFrameId(innerObj.parentInnerId)) {
+    if (WinMap.isFrameId(innerObj.parentId)) {
       entry.isFrame = true;
     }
     WinMap.addToOuterHistory(entry, innerObj.outerId);

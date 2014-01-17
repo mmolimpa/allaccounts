@@ -185,7 +185,7 @@ function updateIconCore(doc, container, topInnerId, tab) {
     return;
   }
 
-  var tabDocData = WinMap.getInnerEntry(topInnerId);
+  var tabDocData = WinMap.getInnerWindowFromId(topInnerId);
   var username;
   if ("docUserObj" in tabDocData) {
     // tab has an user

@@ -49,9 +49,9 @@ function createLoginsMenu(menupopup) {
   menupopup.addEventListener("command", onLoginCommand, false);
   menupopup.addEventListener("click", onLoginMiddleClick, false);
 
-  var doc = menupopup.ownerDocument;
-  var topInnerId = getCurrentTopInnerId(UIUtils.getSelectedTab(doc.defaultView));
-  var topInnerData = WinMap.getInnerEntry(topInnerId);
+  var chromeWin = menupopup.ownerDocument.defaultView;
+  var browser = UIUtils.getSelectedTab(chromeWin).linkedBrowser;
+  var topInnerData = WinMap.getInnerWindowFromObj(browser.contentWindow);
 
   // list all accounts
   var docUser = "docUserObj" in topInnerData ? topInnerData.docUserObj : null;

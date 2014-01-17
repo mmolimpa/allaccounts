@@ -24,7 +24,7 @@ var NewDocUser = {
     var innerObj = WinMap.addInner(msgData);
     console.assert(msgData.url.length > 0, "empty url");
 
-    var docUser = WinMap.findUser(msgData.uri, WinMap.getTopInnerId(msgData.inner)); // TODO reuse it from req/resp
+    var docUser = WinMap.findUser(msgData.uri, WinMap.getInnerWindowFromId(msgData.inner).topId); // TODO reuse it from req/resp
     if (docUser !== null) {
       // logged in tld
       innerObj.docUserObj = docUser; // used by assets/iframes
@@ -44,7 +44,7 @@ var NewDocUser = {
     var entry = {
       __proto__: null,
       type: "request-doc", // "request"
-      visibleInnerId: msgData.visibleInner, // "previous" inner document
+      visibleInnerId: msgData.visibleInner, // currentInnerId / "previous" inner document
       url:  requestURI.spec // TODO useless?
     };
 
@@ -60,7 +60,7 @@ var NewDocUser = {
       topInnerId = WinMap.TopWindowFlag;
       docUser = WinMap.findUser(requestURI, topInnerId, msgData.outer);
     } else {
-      topInnerId = WinMap.getTopInnerId(msgData.visibleInner);
+      topInnerId = WinMap.getInnerWindowFromId(msgData.visibleInner).topId;
       docUser = WinMap.findUser(requestURI, topInnerId);
     }
 
@@ -241,32 +241,35 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  getInnerEntry: function(id) {
-    console.assert(typeof id === "number", "getInnerEntry invalid param", id);
+  getInnerWindowFromId: function(id) {
+    console.assert(typeof id === "number", "getInnerWindowFromId invalid param", id);
     if (id in this._inner) {
       return this._inner[id];
     }
     this._update();
-    console.assert(id in this._inner, "getInnerEntry - innerId not found", id);
+    console.assert(id in this._inner, "getInnerWindowFromId - innerId not found", id);
     return this._inner[id];
+  },
+
+
+  getInnerWindowFromObj: function(win) {
+    return WinMap.getInnerWindowFromId(getDOMUtils(win).currentInnerWindowID);
   },
 
 
   addInner: function(msgData) {
     var innerId = msgData.inner;
-    var innerObj = {
-      __proto__: null,
-      "url": msgData.url,
-      "outerId": msgData.outer,
-      "parentInnerId": msgData.parentInner
-    };
+    var innerObj = new InnerWindow(innerId,
+                                   msgData.parentInner,
+                                   msgData.outer,
+                                   msgData.url);
 
     // current entry may be a "placeholder" doc (from an unloaded tab)
     // added by WinMap._update. The real document may have the same id.
     if (innerId in this._inner) {
       var entry = this._inner[innerId];
       console.assert(entry.outerId === msgData.outer, "different outer id");
-      console.assert((entry.url === "about:blank") || (entry.url === msgData.url), "different url");
+      console.assert((entry.originalUri.spec === "about:blank") || (entry.originalUri.spec === msgData.url), "different url");
     }
 
     // all inner windons should be preserved to allow a page from bfcache to use its original login
@@ -287,10 +290,11 @@ var WinMap = { // stores all current outer/inner windows
       submitted: data,
       tld: getTldFromHost(win.location.hostname)
     };
-    var outerId = getDOMUtils(win).outerWindowID;
-    WinMap.addToOuterHistory(entry, outerId);
+
+    var innerWin = WinMap.getInnerWindowFromObj(win);
+    WinMap.addToOuterHistory(entry, innerWin.outerId);
     if (docUser !== null) {
-      UserChange.add(docUser, outerId);
+      UserChange.add(docUser, innerWin.topWindow.outerId);
     }
   },
 
@@ -340,24 +344,7 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  getTopInnerId: function(innerId) {
-    console.assert(typeof innerId === "number", "getTopInnerId invalid param", innerId, typeof innerId);
-    var all = this._inner;
-    if ((innerId in all) === false) {
-      this._update();
-    }
-    console.assert(innerId in all, "getTopInnerId not found", innerId);
-    var win = all[innerId];
-    if (!win) console.trace("win undefined");
-    while (WinMap.isFrameId(win.parentInnerId)) {
-      innerId = win.parentInnerId;
-      win = all[innerId];
-    }
-    return innerId;
-  },
-
-
-  getTabId: function(outerId) { // TODO findTabIdtab id = outer id from a top window
+  getTabId: function(outerId) { // used by fromOpener
     console.assert(typeof outerId === "number", "getTabId invalid param", outerId);
     var all = this._outer;
     if ((outerId in all) === false) {
@@ -386,9 +373,9 @@ var WinMap = { // stores all current outer/inner windows
       console.assert(typeof tabId !== "undefined", "topInnerId invalid; tabId not defined");
       userId = UserState.getTabDefaultFirstPartyUser(tld, tabId);
     } else {
-      var topData = WinMap.getInnerEntry(topInnerId);
-      var tldFirstParty = getTldFromUri(Services.io.newURI(topData.url, null, null));
-      if (tldFirstParty === tld) {
+      var topData = WinMap.getInnerWindowFromId(topInnerId);
+      if (tld === topData.eTld) {
+        // uriDoc ==> first-party
         userId = UserState.getTabDefaultFirstPartyUser(tld, topData.outerId);
       } else {
         userId = UserState.getTabDefaultThirdPartyUser(tld, topInnerId);
@@ -409,11 +396,11 @@ var WinMap = { // stores all current outer/inner windows
     var entry;
     var innerId = id;
     while (innerId !== WinMap.TopWindowFlag) {
-      entry = this.getInnerEntry(innerId);
+      entry = this.getInnerWindowFromId(innerId);
       if ("docUserObj" in entry) {
         return entry.docUserObj;
       }
-      innerId = entry.parentInnerId;
+      innerId = entry.parentId;
     }
     return null;
   },
@@ -431,31 +418,28 @@ var WinMap = { // stores all current outer/inner windows
     // owner document is anon
 
     // resUri could be a logged in tld (different from anonymous innerId)
-    var topInnerId = WinMap.getTopInnerId(innerId);
-    var assetUser = this.findUser(resUri, topInnerId);
+    var assetUser = this.findUser(resUri, WinMap.getInnerWindowFromId(innerId).topId);
     return assetUser === null ? null : this.getAsAnonUser(innerId);
   },
 
 
   getAsAnonUser: function(innerId) {
-    var topInnerId = WinMap.getTopInnerId(innerId);
-    var entry = WinMap.getInnerEntry(innerId);
+    var entry = WinMap.getInnerWindowFromId(innerId);
     console.assert(("docUserObj" in entry) === false, "innerId is not anon", innerId, entry);
-    var uri = Services.io.newURI(entry.url, null, null);
-    var tld = getTldFromUri(uri);
+    var tld = entry.eTld;
     if (tld === null) {
       // "about:"
-      tld = getTldForUnsupportedScheme(uri);
+      tld = getTldForUnsupportedScheme(entry.originalUri);
     }
-    return new DocumentUser(null, tld, topInnerId);
+    return new DocumentUser(null, tld, entry.topId);
   },
 
 
   getSavedUser: function(innerId) {
-    var entry = this.getInnerEntry(innerId);
+    var entry = this.getInnerWindowFromId(innerId);
     return "docUserObj" in entry
               ? entry.docUserObj // identity used by document
-              : this.getNextSavedUser(entry.parentInnerId);
+              : this.getNextSavedUser(entry.parentId);
   },
 
 
@@ -550,15 +534,15 @@ var DebugWinMap = {
         var docUser = obj.docUserObj;
         s += "{" + docUser.user.plainName + "/" + docUser.user.plainTld + "}  ";
       }
-      s += obj.url.substr(0, 140);
-      if (obj.url.length === 0) {
+      s += obj.originalUri.spec.substr(0, 140);
+      if (obj.originalUri.spec.length === 0) {
         s += "<url empty>";
       }
       if (currentInner === -1) {
         s += " <outer removed>";
       } else {
         if (currentInner === innerId) {
-          if (win.location.href !== obj.url) {
+          if (win.location.href !== obj.originalUri.spec) {
             s += " - actual URL: " + win.location.href.substr(0, 140);
           }
         } else {
