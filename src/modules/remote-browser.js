@@ -29,7 +29,6 @@ function onNewDocument(win) {
     return;
   }
 
-  var doc = win.document;
   var utils = getDOMUtils(win);
   var msgData = {
     from: "new-doc",
@@ -52,7 +51,7 @@ function onNewDocument(win) {
   if (win.opener !== null) {
     // OBS opener=null for middle clicks. It works for target=_blank links, even for different domains
     var util2 = getDOMUtils(win.opener);
-    msgData.openerOuter = util2.outerWindowID; //  // TODO useless, inner is enough
+    msgData.openerOuter = util2.outerWindowID; // TODO useless, inner is enough
   }
 
   if (m_src !== null) {
@@ -185,6 +184,7 @@ function onParentMessage(message) {
 */
 
 function getDOMUtils(win) {
+  console.assert(typeof win === "object", "win should be an object", win);
   return win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
 }
 

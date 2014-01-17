@@ -181,7 +181,7 @@ SetCookieParser.prototype = {
     // 012^-----idx=3 length=9
 
     var pair = ["", ""];
-    pair[0] = cookie.substring(0, idx).trim();
+    pair[0] = cookie.substring(0, idx).trim(); // TODO ???
     idx++;
     if (idx < cookie.length) {
       pair[1] = cookie.substring(idx);

@@ -73,6 +73,7 @@ var SubmitObserver = {
       copyData_fromDefault(tldDoc, docUser); // copy current cookies to new user
 
       // currently useless, "new account" command will remove all cookies
+      // BUG first login? default cookies need to be copied (other tabs will be moved to NewAccount, they could be using default cookies)
       //copyData_fromDefault(tldDoc, newUser); // copy current cookies to NewAccount
     } else {
       copyDataToAnotherUser(tldDoc, docUser, currentDocUser);

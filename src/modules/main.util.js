@@ -94,6 +94,7 @@ function isSupportedScheme(scheme) { // TODO check nsIStandardURL
 
 
 function getDOMUtils(win) {
+  console.assert(typeof win === "object", "win should be an object", win);
   return win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
 }
 

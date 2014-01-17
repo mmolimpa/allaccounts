@@ -62,6 +62,7 @@ var UIUtils = {
 
   // browser.xul has browser elements all over the place
   isContentBrowser: function(browser) {
+    console.assert(browser !== null, "browser should not be null");
     // edge case: browser (and tab) already removed from DOM
     //            (browser.parentNode === null)
     var t = browser.getAttribute("type");

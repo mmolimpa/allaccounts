@@ -5,22 +5,41 @@
 
 function ChannelProperties(httpChannel) {
   var ctx = this._getLoadContext(httpChannel)
-  if ((ctx === null) || ctx.usePrivateBrowsing) {
-    // safebrowsing, http://wpad/wpad.dat
+  if (ctx === null) {
+    // CA, sync, favicon, update, wpad
+    try {
+      httpChannel.requestSucceeded;
+      console.log("RESPONSE - context=null", httpChannel.URI);
+    } catch (ex) {
+      console.log("request  - context=null", httpChannel.URI);
+    }
+    return;
+  }
+
+  if (ctx.usePrivateBrowsing) {
     return;
   }
 
   try{
     var win = ctx.associatedWindow;
   } catch (ex) {
-    // background thumbnailing? [nsIException: [Exception...
-    // "Component returned failure code: 0x8000ffff (NS_ERROR_UNEXPECTED)
-    console.log("associatedWindow exception", httpChannel.URI.spec, ex);
+    // safebrowsing
+    try {
+      httpChannel.requestSucceeded;
+      console.log("RESPONSE - associatedWindow error", httpChannel.URI.prePath, ctx);
+    } catch (ex) {
+      console.log("request  - associatedWindow error", httpChannel.URI.prePath, ctx);
+    }
     return;
   }
 
   if (win === null) {
-    console.trace("request win=null", httpChannel.URI.spec);
+    try {
+      httpChannel.requestSucceeded;
+      console.trace("RESPONSE - win=null", httpChannel.URI.prePath, ctx);
+    } catch (ex) {
+      console.log("request  - win=null", httpChannel.URI.prePath, ctx);
+    }
     return;
   }
 
@@ -39,7 +58,7 @@ function ChannelProperties(httpChannel) {
   } else {
     try {
       httpChannel.requestSucceeded;
-      console.log("response - tab not found", httpChannel.URI, win);
+      console.log("RESPONSE - tab not found", httpChannel.URI, win);
     } catch (ex) {
       console.log("request  - tab not found", httpChannel.URI, win);
     }
