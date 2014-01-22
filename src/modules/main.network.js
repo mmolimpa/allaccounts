@@ -23,7 +23,15 @@ var NetworkObserver = {
     // nsIObserver
     observe: function HttpListeners_request(subject, topic, data) {
       var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
-      var docUser = NetworkObserver._request._getUser(httpChannel);
+      var myChannel = new ChannelProperties(httpChannel);
+      if (myChannel.linkedWindow === null) {
+        var cookies = myChannel.headersFromRequest()["cookie"];
+        if (cookies !== null) {
+          //console.log("request  - no window + Cookie", httpChannel.URI, cookies);
+        }
+      }
+
+      var docUser = NetworkObserver._request._getUser(httpChannel, myChannel);
       if (docUser === null) {
         return; // send default cookies
       }
@@ -35,8 +43,7 @@ var NetworkObserver = {
     },
 
 
-    _getUser: function(httpChannel) {
-      var myChannel = new ChannelProperties(httpChannel);
+    _getUser: function(httpChannel, myChannel) {
       var uri = httpChannel.URI;
       var win = myChannel.linkedWindow;
       var winutils = win === null ? null : getDOMUtils(win);
@@ -83,6 +90,12 @@ var NetworkObserver = {
     observe: function HttpListeners_response(subject, topic, data) {
       var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
       var myChannel = new ChannelProperties(httpChannel);
+      if (myChannel.linkedWindow === null) {
+        var setCookies2 = myChannel.headersFromResponse()["set-cookie"];
+        if (setCookies2 !== null) {
+          console.log("RESPONSE - no window + SetCookie", httpChannel.URI, setCookies2);
+        }
+      }
       var docUser = NetworkObserver._response._getUser(httpChannel, myChannel);
       if (docUser === null) {
         return; // set default cookies
@@ -148,37 +161,22 @@ var NetworkObserver = {
 
 
 function fillDocReqData(win, utils) {
-  if (isTopWindow(win) === false) {
+  var msgData = {
+    visibleInner:  utils.currentInnerWindowID,
+    outer:         utils.outerWindowID,
+    parentInner:   WindowUtils.NO_WINDOW,
+    openerInnerId: WindowUtils.NO_WINDOW
+  };
+
+  if (win !== win.top) {
     console.assert(win.opener === null, "is an iframe supposed to have an opener?");
-    var utilsParent = getDOMUtils(win.parent);
-    return {
-      __proto__ :  null,
-      outer:       utils.outerWindowID,
-      visibleInner:utils.currentInnerWindowID,
-      parentOuter: utilsParent.outerWindowID,
-      parentInner: utilsParent.currentInnerWindowID,
-      parentUrl:   win.parent.location.href
-    };
+    console.assert(win.parent !== null, "iframe without a parent element");
+    msgData.parentInner = getDOMUtils(win.parent).currentInnerWindowID;
   }
 
   if (win.opener) {
-    var msgData = {
-      __proto__ :  null,
-      outer:       utils.outerWindowID,
-      visibleInner:utils.currentInnerWindowID,
-      parentOuter: WinMap.TopWindowFlag,
-      parentInner: WinMap.TopWindowFlag
-    };
-    var utilsOpener = getDOMUtils(win.opener);
-    msgData.openerOuter = utilsOpener.outerWindowID;
-    return msgData;
+    msgData.openerInnerId = getDOMUtils(win.opener).currentInnerWindowID;
   }
 
-  return {
-    __proto__ :  null,
-    outer:       utils.outerWindowID,
-    visibleInner:utils.currentInnerWindowID,
-    parentOuter: WinMap.TopWindowFlag,
-    parentInner: WinMap.TopWindowFlag
-  };
+  return msgData;
 }

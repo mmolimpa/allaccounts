@@ -124,7 +124,7 @@ DocumentUser.prototype = {
 
 
   get topDocId() {
-    console.assert(this._topInnerId !== WinMap.TopWindowFlag, "_topInnerId is not valid");
+    console.assert(this._topInnerId !== WindowUtils.NO_WINDOW, "_topInnerId is not valid");
     return this._topInnerId;
   },
 

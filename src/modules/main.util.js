@@ -166,44 +166,39 @@ function hasRootDomain(domain, host) {
 }
 
 
-function enableErrorMsg(notSupportedFeature, msgData, tab) {
-  var msg = ["ERROR"];
-  msg.push("Type: " + notSupportedFeature);
-  msg.push("URL:  " + msgData.url);
-  if (msgData.topUrl) {
-    msg.push("Top:  " + msgData.topUrl);
-  }
+function enableErrorMsg(browser, innerId, notSupportedFeature, err = undefined) {
+  var innerWin = WinMap.getInnerWindowFromId(innerId);
+  var msg = ["ERROR: " + notSupportedFeature];
+  msg.push(JSON.stringify(innerWin, null, 2));
 
   if (notSupportedFeature === "sandbox") {
-    msg.push("Inner ID: " + msgData.inner);
-    var innerObj = WinMap.getInnerWindowFromId(msgData.inner);
     var entry = {
       __proto__: null,
       type: "sandbox-error",
-      "inner-id": msgData.inner,
-      "error": msgData.err
+      "inner-id": innerWin.innerId,
+      "error": err
     };
-    if (WinMap.isFrameId(innerObj.parentId)) {
+    if (WinMap.isFrameId(innerWin.parentId)) {
       entry.isFrame = true;
     }
-    WinMap.addToOuterHistory(entry, innerObj.outerId);
+    WinMap.addToOuterHistory(entry, innerWin.outerId);
   }
 
-  msg.push("Desc: " + msgData.err);
+  if (err !== undefined) {
+    msg.push("Desc: " + err);
+  }
   console.log(msg.join("\n"));
 
+  var tab = UIUtils.getLinkedTabFromBrowser(browser);
   tab.setAttribute("${BASE_DOM_ID}-tab-error", notSupportedFeature);
   updateUIAsync(tab, true);
 }
 
 
 function enableErrorMsgLocal(notSupportedFeature, win) {
-  var msgData = {url: win.location.href, err: ""};
-  msgData.topUrl = win !== win.top ? win.top.location.href : "";
-
-  var browser = UIUtils.getParentBrowser(win);
-  var tab = UIUtils.getLinkedTabFromBrowser(browser);
-  enableErrorMsg(notSupportedFeature, msgData, tab);
+  enableErrorMsg(UIUtils.getParentBrowser(win),
+                 getDOMUtils(win).currentInnerWindowID,
+                 notSupportedFeature);
 }
 
 

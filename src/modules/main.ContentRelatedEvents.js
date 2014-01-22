@@ -104,13 +104,6 @@ var ContentRelatedEvents = {
       }
 
       var msgData = message.json;
-      if ("url" in msgData) {
-        if (msgData.url.length > 0) {
-          msgData.uri = Services.io.newURI(msgData.url, null, null);
-        } else {
-          msgData.uri = null;
-        }
-      }
       return RemoteBrowserMethod[msgData.from](msgData, browser);
 
     } catch (ex) {
@@ -185,15 +178,16 @@ var RemoteBrowserMethod = {
     var docUser = WinMap.getSavedUser(msgData.inner);
     console.assert(docUser !== null, "docUser should be valid");
 
+    var uriWin = WinMap.getInnerWindowFromId(msgData.inner).originalUri;
     switch (msgData.cmd) {
       case "set":
-        Cookies.setCookie(docUser, msgData.uri, msgData.value, true);
+        Cookies.setCookie(docUser, uriWin, msgData.value, true);
         return null;
 
       case "get":
         var val = "foo@documentCookie";
         try {
-          var cookie = Cookies.getCookie(true, docUser.wrapUri(msgData.uri));
+          var cookie = Cookies.getCookie(true, docUser.wrapUri(uriWin));
           val = cookie === null ? "" : cookie;
         } catch (ex) {
           console.trace(ex);
@@ -210,16 +204,19 @@ var RemoteBrowserMethod = {
     var docUser = WinMap.getSavedUser(msgData.inner);
     console.assert(docUser !== null, "docUser should be valid");
 
-    var uri = docUser.wrapUri(msgData.uri);
-    var principal = Services.scriptSecurityManager.getNoAppCodebasePrincipal(uri);
+    var innerWin = WinMap.getInnerWindowFromId(msgData.inner);
+    var principal = Services.scriptSecurityManager
+                   .getNoAppCodebasePrincipal(docUser.wrapUri(innerWin.originalUri));
     var storage; // nsIDOMStorage
 
-    if (docUser.is1stParty(getTldFromHost(msgData.uri.host))) {
+    if (innerWin.isFirstParty || (docUser.user !== null)) {
+      if (innerWin.isFirstParty === false) {
+        console.log("localStorage 3rd-party local", msgData.cmd, innerWin, docUser);
+      }
       storage = Services.domStorageManager.createStorage(principal, "");
     } else {
-      // BUG only for anon 3rd-party!
       // TODO one storage per doc document
-      console.log("localStorage 3rd-party", msgData.uri.host, msgData.cmd);
+      console.log("localStorage => session", msgData.cmd, innerWin, docUser);
       storage = Cc["@mozilla.org/dom/sessionStorage-manager;1"]
                   .createInstance(Ci.nsIDOMStorageManager)
                   .createStorage(principal, "");
@@ -264,7 +261,7 @@ var RemoteBrowserMethod = {
     }
 
     if (eventData !== null) {
-      this._localStorageEvent(eventData, docUser, msgData.inner);
+      this._localStorageEvent(eventData, docUser, innerWin.innerId);
     }
 
     return rv;
@@ -276,33 +273,53 @@ var RemoteBrowserMethod = {
     var srcOrigin = srcWin.location.origin;
     var evt = null;
 
-    var enumWin = WinMap.getInnerIdEnumerator();
+    var enumWin = WinMap.getInnerIdEnumerator(); // TODO iterate items
     for (var innerStr in enumWin) {
-      var innerId = parseInt(innerStr, 10);
-      var docUser = WinMap.getSavedUser(innerId);
+      var innerWin = WinMap.getInnerWindowFromId(parseInt(innerStr, 10));
+      if (innerWin.origin !== srcOrigin) {
+        continue;
+      }
+      var docUser = WinMap.getSavedUser(innerWin.innerId);
       if (docUser === null) {
         continue;
       }
       if (UserUtils.equalsUser(srcDocUser.user, docUser.user) === false) {
         continue;
       }
-      var win = Services.wm.getCurrentInnerWindowWithId(innerId); // null=>bfcached?
-      if ((win === null) || (win.location === null) ||
-         (win.location.origin !== srcOrigin) || (srcInnerId === innerId)) {
+      if (innerWin.innerId === srcInnerId) {
+        continue;
+      }
+      var win = Services.wm.getCurrentInnerWindowWithId(innerWin.innerId);
+      if (win === null) { // null => bfcached?
         continue;
       }
       if (evt === null) {
         evt = srcWin.document.createEvent("StorageEvent");
         evt.initStorageEvent("storage", false, false, data[0], data[1], data[2], srcWin.location.href, null);
       }
-      win.dispatchEvent(evt);
+
+      try {
+        win.dispatchEvent(evt);
+      } catch (ex) {
+        // [nsIException: [Exception... "Component returned failure code:
+        // 0x80004005 (NS_ERROR_FAILURE) [nsIDOMEventTarget.dispatchEvent]"
+        console.trace("_localStorageEvent exception", ex.name, ex.message, srcInnerId, innerWin);
+      }
     }
   },
 
 
   "new-doc": function(msgData, browser) {
-    var isTop = WinMap.isTabId(msgData.parentOuter);
-    var customize = NewDocUser.addNewDocument(msgData);
+    var innerWinParent;
+    var isTop;
+    if (msgData.parentInner === WindowUtils.NO_WINDOW) {
+      innerWinParent = null;
+      isTop = true;
+    } else {
+      innerWinParent = WinMap.getInnerWindowFromId(msgData.parentInner);
+      isTop = WinMap.isTabId(innerWinParent.outerId);
+    }
+    var customize = NewDocUser.addNewDocument(msgData, innerWinParent);
     var tab = UIUtils.getLinkedTabFromBrowser(browser);
     updateUIAsync(tab, isTop);
     if (customize) {
@@ -316,8 +333,7 @@ var RemoteBrowserMethod = {
 
   "error": function(msgData, browser) {
     //console.assert(message.sync === false, "use sendAsyncMessage!");
-    var tab = UIUtils.getLinkedTabFromBrowser(browser);
-    enableErrorMsg(msgData.cmd, msgData, tab);
+    enableErrorMsg(browser, msgData.inner, msgData.cmd, msgData.err);
     return null;
   }
 

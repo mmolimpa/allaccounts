@@ -7,12 +7,13 @@ function ChannelProperties(httpChannel) {
   var ctx = this._getLoadContext(httpChannel)
   if (ctx === null) {
     // CA, sync, favicon, update, wpad
+    /*
     try {
       httpChannel.requestSucceeded;
       console.log("RESPONSE - context=null", httpChannel.URI);
     } catch (ex) {
       console.log("request  - context=null", httpChannel.URI);
-    }
+    }*/
     return;
   }
 
@@ -60,7 +61,7 @@ function ChannelProperties(httpChannel) {
       httpChannel.requestSucceeded;
       console.log("RESPONSE - tab not found", httpChannel.URI, win);
     } catch (ex) {
-      console.log("request  - tab not found", httpChannel.URI, win);
+      //console.log("request  - tab not found", httpChannel.URI, win);
     }
   }
 }
@@ -130,17 +131,17 @@ ChannelProperties.prototype = {
     }
   },
 
-  /*
+
   headersFromRequest: function() {
     var nameValues = {
-      //"cookie": null, //for debug only
+      "cookie": null, // for debug only
       "authorization": null
     }
     this._visitLoop.values = nameValues;
     this._channel.get().visitRequestHeaders(this._visitLoop);
     return nameValues;
   },
-  */
+
 
   headersFromResponse: function() {
     var nameValues = {

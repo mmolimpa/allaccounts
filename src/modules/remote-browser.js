@@ -31,27 +31,25 @@ function onNewDocument(win) {
 
   var utils = getDOMUtils(win);
   var msgData = {
-    from: "new-doc",
-    // TODO host: win.location.hostname,
-    url: win.location.href,
+    from:        "new-doc",
+    url:         win.location.href,
+    origin:      win.location.origin,
     inner:       utils.currentInnerWindowID,
     outer:       utils.outerWindowID,
-    parentOuter: -1,
-    parentInner: -1
+    parentInner:   -1, // WindowUtils.NO_WINDOW
+    openerInnerId: -1  // WindowUtils.NO_WINDOW
   };
 
 
   if (win !== win.top) {
-    var u = getDOMUtils(win.parent);
-    msgData.parentOuter = u.outerWindowID; // TODO useless, inner is enough
-    msgData.parentInner = u.currentInnerWindowID;
-    msgData.parentUrl   = win.parent.location.href; // to fix pending objs // TODO only for url=""/about:blank?
+    console.assert(win.opener === null, "is an iframe supposed to have an opener?");
+    console.assert(win.parent !== null, "iframe without a parent element");
+    msgData.parentInner = getDOMUtils(win.parent).currentInnerWindowID;
   }
 
   if (win.opener !== null) {
     // OBS opener=null for middle clicks. It works for target=_blank links, even for different domains
-    var util2 = getDOMUtils(win.opener);
-    msgData.openerOuter = util2.outerWindowID; // TODO useless, inner is enough
+    msgData.openerInnerId = getDOMUtils(win.opener).currentInnerWindowID;
   }
 
   if (m_src !== null) {
@@ -146,16 +144,11 @@ function resetDoc(win, src) {
 }
 */
 
+
+// cmd = localStorage, cookie, error
 function cmdContent(obj, win) {
   var msgData = obj;
-  msgData.top = win === win.top; // TODO not used anymore?
-  msgData.parent = win === win.top ? null : win.parent.location.href;
-  msgData.url = win.location.href;
-
-  var winutils = getDOMUtils(win);
-  msgData.outer = winutils.outerWindowID; // TODO useless, inner is enough
-  msgData.inner = winutils.currentInnerWindowID;
-
+  msgData.inner = getDOMUtils(win).currentInnerWindowID;
   var remoteObj = sendSyncMessageShim("${BASE_DOM_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win))[0];
   if (remoteObj !== null) {
     // send remote data to page (e.g. cookie value)

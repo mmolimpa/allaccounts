@@ -13,6 +13,10 @@ var Cu = Components.utils;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 
+
+#include "console.js"
+#include "main.util.js"
+#include "main.UIUtils.js"
 #include "main.window.js"
 #include "main.network.js"
 #include "main.ChannelProperties.js"
@@ -28,10 +32,7 @@ Cu.import("resource://gre/modules/Services.jsm");
 #include "main.utils-storage.js"
 #include "main.login-submit.js"
 #include "main.cookies.js"
-#include "main.util.js"
 #include "main.icon.js"
-#include "main.UIUtils.js"
-#include "console.js"
 
 
 var m_remote = {};

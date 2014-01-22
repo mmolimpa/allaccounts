@@ -133,3 +133,8 @@ var UIUtils = {
   }
 
 };
+
+
+var WindowUtils = {
+  NO_WINDOW: -1
+};

@@ -3,18 +3,30 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 
-function InnerWindow(id, parent, outer, url) {
-  console.assert(typeof id === "number", "InnerWindow invalid param id", id);
-  console.assert(typeof parent === "number", "InnerWindow invalid param parent", parent);
-  console.assert(typeof outer === "number", "InnerWindow invalid param outer", outer);
-  console.assert(typeof url === "string", "InnerWindow invalid param url", url);
+function InnerWindow(msgData) {
+  console.assert(typeof msgData.inner === "number", "InnerWindow id invalid type", msgData.inner);
+  console.assert(typeof msgData.parentInner === "number", "InnerWindow parent invalid type", msgData.parentInner);
+  console.assert(typeof msgData.openerInnerId === "number", "InnerWindow opener invalid type", msgData.openerInnerId);
+  console.assert(typeof msgData.outer === "number", "InnerWindow outer invalid type", msgData.outer);
+  console.assert(typeof msgData.origin === "string", "InnerWindow origin invalid type", msgData.origin);
+  console.assert(typeof msgData.url === "string", "InnerWindow url invalid type", msgData.url);
 
-  this._id = id;
-  this._parent = parent;
-  this._outer = outer;
+  console.assert(msgData.inner !== WindowUtils.NO_WINDOW, "InnerWindow id invalid value", msgData.inner);
+  console.assert(msgData.outer !== WindowUtils.NO_WINDOW, "InnerWindow outer invalid value", msgData.outer);
+  console.assert(msgData.url.length > 0, "empty url");
 
-  this._uri = Services.io.newURI(url, null, null);
+  if (msgData.origin.length === 0) {
+    console.log("origin empty", this);
+  }
+
+  this._id = msgData.inner;
+  this._parent = msgData.parentInner;
+  this._opener = msgData.openerInnerId;
+  this._outer = msgData.outer;
+
+  this._uri = Services.io.newURI(msgData.url, null, null);
   this._tld = getTldFromUri(this._uri);
+  this._origin = msgData.origin;
 
   //this._data = Object.create(null);
   //this._data["${CHROME_NAME}"] = Object.create(null);
@@ -22,13 +34,15 @@ function InnerWindow(id, parent, outer, url) {
 
 
 InnerWindow.prototype = {
-  _id: 0,
-  _parent: 0,
-  _outer: 0,
-  _uri: null,
-  _tld: null,
+  _id:     WindowUtils.NO_WINDOW,
+  _topId:  WindowUtils.NO_WINDOW,
+  _parent: WindowUtils.NO_WINDOW,
+  _opener: WindowUtils.NO_WINDOW,
+  _outer:  WindowUtils.NO_WINDOW,
+  _uri:    null,
+  _tld:    null,
+  _origin: null,
 
-  _topId: -1,
   //_data: null,
 
 
@@ -41,9 +55,20 @@ InnerWindow.prototype = {
     return this._tld;
   },
 
+
+  get origin() {
+    return this._origin;
+  },
+
+
   // url may change due to pushState/fragment; origin never changes
   get originalUri() {
     return this._uri;
+  },
+
+
+  get openerId() {
+    return this._opener;
   },
 
 
@@ -58,7 +83,7 @@ InnerWindow.prototype = {
 
 
   get isTop() {
-    return this._parent === WinMap.TopWindowFlag;
+    return this._parent === WindowUtils.NO_WINDOW;
   },
 
 
@@ -87,9 +112,9 @@ InnerWindow.prototype = {
 
 
   get topId() {
-    if (this._topId === -1) {
+    if (this._topId === WindowUtils.NO_WINDOW) {
       this._topId = this._getTopInnerId(this._id);
-      console.assert(this._topId > -1, "top id not found?");
+      console.assert(this._topId !== WindowUtils.NO_WINDOW, "top id not found?");
     }
     return this._topId;
   },
@@ -119,14 +144,28 @@ InnerWindow.prototype = {
 
 
   toJSON: function() {
-    return {
-      innerId:     this._id,
-      topId:       this._topId,
-      parentId:    this._parent,
-      outerId:     this._outer,
-      eTld:        this._tld,
-      originalUri: this._uri.spec
+    var rv = {
+      innerId: this._id,
+      outerId: this._outer,
+      url:     this._uri.spec,
+      origin:  this._origin,
+      eTld:    this._tld
     };
+    if (this._id !== this._topId) {
+      rv.topId = this._topId;
+    }
+    if (this._parent !== WindowUtils.NO_WINDOW) {
+      rv.parentId = this._parent;
+    }
+    if (this._opener !== WindowUtils.NO_WINDOW) {
+      rv.openerId = this._opener;
+    }
+    return rv;
+  },
+
+
+  toString: function() {
+    return "[object InnerWindow]";
   }
 
 };

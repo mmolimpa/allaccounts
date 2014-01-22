@@ -197,7 +197,7 @@ var UserState = {
     }
 
     console.assert((usr !== null) || (LoginDB.isLoggedIn(StringEncoding.encode(tldRequest)) === false),
-                   "addRequest usr=null loggedin tld", tldRequest, uri, isWinChannel, channelWindow.location);
+                   "addRequest usr=null loggedin tld", tldRequest, isWinChannel ? "window" : "resource", usr, uri.prePath, channelWindow.location.origin);
 
     // user=null => null or anon window/asset request using an inherited user
     if ("thirdPartyUsers" in topData) {
