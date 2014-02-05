@@ -80,7 +80,11 @@ var NetworkObserver = {
         console.log("REQ ERR - login found but not used!", isWin, uri, win.location.href, winutils.currentInnerWindowID);
       }
 
-      var docUser3 = WinMap.getAsAnonUser(winutils.currentInnerWindowID);
+      if (myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN) {
+        return null;
+      }
+
+      var docUser3 = WinMap.getAsAnonUser(winutils.currentInnerWindowID, uri);
       return docUser3.is1stParty(docUser3.ownerTld) ? null : docUser3;
     }
   },
@@ -151,7 +155,11 @@ var NetworkObserver = {
         console.log("RESPONSE ERR - login found but not used!", uri, win.location.href, winutils.currentInnerWindowID);
       }
 
-      var docUser3 = WinMap.getAsAnonUser(winutils.currentInnerWindowID);
+      if (myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN) {
+        return null;
+      }
+
+      var docUser3 = WinMap.getAsAnonUser(winutils.currentInnerWindowID, uri);
       return docUser3.is1stParty(docUser3.ownerTld) ? null : docUser3;
     }
   }

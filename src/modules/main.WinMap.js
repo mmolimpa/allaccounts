@@ -429,9 +429,9 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  getAsAnonUser: function(innerId) {
+  getAsAnonUser: function(innerId, uri) { // TODO remove uri
     var entry = WinMap.getInnerWindowFromId(innerId);
-    console.assert(("docUserObj" in entry) === false, "innerId is not anon", innerId, entry);
+    console.assert(("docUserObj" in entry) === false, "innerId is not anon", uri, innerId, entry);
     var tld = entry.eTld;
     if (tld === null) {
       // "about:"
