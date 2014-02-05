@@ -285,8 +285,11 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  getInnerIdEnumerator: function() {
-    return Iterator(this._inner, true);
+  getInnerWindowIterator: function*() {
+    for (var id in this._inner) {
+      yield this._inner[id];
+    }
+    return null;
   },
 
 

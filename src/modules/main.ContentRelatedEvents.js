@@ -273,9 +273,7 @@ var RemoteBrowserMethod = {
     var srcOrigin = srcWin.location.origin;
     var evt = null;
 
-    var enumWin = WinMap.getInnerIdEnumerator(); // TODO iterate items
-    for (var innerStr in enumWin) {
-      var innerWin = WinMap.getInnerWindowFromId(parseInt(innerStr, 10));
+    for (var innerWin of WinMap.getInnerWindowIterator()) {
       if (innerWin.origin !== srcOrigin) {
         continue;
       }
@@ -290,14 +288,15 @@ var RemoteBrowserMethod = {
         continue;
       }
       var win = Services.wm.getCurrentInnerWindowWithId(innerWin.innerId);
-      if (win === null) { // null => bfcached?
+      if ((win === null) || (win.document === null)) { // bfcached?
+        console.trace("_localStorageEvent win doc null", win, innerWin);
         continue;
       }
-      if (evt === null) {
-        evt = srcWin.document.createEvent("StorageEvent");
-        evt.initStorageEvent("storage", false, false, data[0], data[1], data[2], srcWin.location.href, null);
-      }
 
+      // event from srcWin *sometimes* has permission issues.
+      // (properties from event cannot be read)
+      var evt = win.document.createEvent("StorageEvent");
+      evt.initStorageEvent("storage", false, false, data[0], data[1], data[2], srcWin.location.href, null);
       try {
         win.dispatchEvent(evt);
       } catch (ex) {
