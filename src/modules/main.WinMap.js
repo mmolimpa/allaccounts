@@ -425,7 +425,7 @@ var WinMap = { // stores all current outer/inner windows
 
     // resUri could be a logged in tld (different from anonymous innerId)
     var assetUser = this.findUser(resUri, WinMap.getInnerWindowFromId(innerId).topId);
-    return assetUser === null ? null : this.getAsAnonUser(innerId);
+    return assetUser === null ? null : this.getAsAnonUser(innerId, resUri);
   },
 
 
