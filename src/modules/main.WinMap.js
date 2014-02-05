@@ -349,11 +349,6 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  isInvalidTopInnerId: function(innerId) {
-    return innerId === WindowUtils.NO_WINDOW;
-  },
-
-
   getTabId: function(outerId) { // used by fromOpener
     console.assert(typeof outerId === "number", "getTabId invalid type", outerId);
     console.assert(outerId !== WindowUtils.NO_WINDOW, "getTabId invalid param", outerId);
@@ -379,7 +374,7 @@ var WinMap = { // stores all current outer/inner windows
 
     // check if this top document (or its elements) has previous requests to tld
     var userId;
-    if (WinMap.isInvalidTopInnerId(topInnerId)) {
+    if (topInnerId === WindowUtils.NO_WINDOW) {
       // assume uriDoc as a top document
       console.assert(typeof tabId !== "undefined", "topInnerId invalid; tabId not defined");
       userId = UserState.getTabDefaultFirstPartyUser(tld, tabId);

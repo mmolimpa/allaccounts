@@ -82,7 +82,7 @@ function DocumentUser(user, plainDocTld, topInnerId) {
   this._ownerEncodedDocTld = StringEncoding.encode(plainDocTld);
 
 
-  if (WinMap.isInvalidTopInnerId(topInnerId)) {
+  if (topInnerId === WindowUtils.NO_WINDOW) {
     // top request: topInnerId is undefined (it won't be used anyway)
     this._topDocTld = plainDocTld;
     this._1stPartyTldEncoded = StringEncoding.encode(plainDocTld);
