@@ -82,7 +82,7 @@ function DocumentUser(user, plainDocTld, topInnerId) {
   this._ownerEncodedDocTld = StringEncoding.encode(plainDocTld);
 
 
-  if (topInnerId === WindowUtils.NO_WINDOW) {
+  if (topInnerId === WindowUtils.WINDOW_ID_NONE) {
     // top request: topInnerId is undefined (it won't be used anyway)
     this._topDocTld = plainDocTld;
     this._1stPartyTldEncoded = StringEncoding.encode(plainDocTld);
@@ -124,7 +124,7 @@ DocumentUser.prototype = {
 
 
   get topDocId() {
-    console.assert(this._topInnerId !== WindowUtils.NO_WINDOW, "_topInnerId is not valid");
+    console.assert(this._topInnerId !== WindowUtils.WINDOW_ID_NONE, "_topInnerId is not valid");
     return this._topInnerId;
   },
 

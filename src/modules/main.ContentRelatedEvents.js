@@ -311,7 +311,7 @@ var RemoteBrowserMethod = {
   "new-doc": function(msgData, browser) {
     var innerWinParent;
     var isTop;
-    if (msgData.parentInner === WindowUtils.NO_WINDOW) {
+    if (msgData.parentInner === WindowUtils.WINDOW_ID_NONE) {
       innerWinParent = null;
       isTop = true;
     } else {

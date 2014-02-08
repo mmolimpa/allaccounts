@@ -172,8 +172,8 @@ function fillDocReqData(win, utils) {
   var msgData = {
     visibleInner:  utils.currentInnerWindowID,
     outer:         utils.outerWindowID,
-    parentInner:   WindowUtils.NO_WINDOW,
-    openerInnerId: WindowUtils.NO_WINDOW
+    parentInner:   WindowUtils.WINDOW_ID_NONE,
+    openerInnerId: WindowUtils.WINDOW_ID_NONE
   };
 
   if (win !== win.top) {

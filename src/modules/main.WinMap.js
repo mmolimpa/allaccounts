@@ -13,8 +13,8 @@ var NewDocUser = {
       "original-url": msgData.url
     };
 
-    var parentOuterId = WindowUtils.NO_WINDOW;
-    var parentInnerId = WindowUtils.NO_WINDOW;
+    var parentOuterId = WindowUtils.WINDOW_ID_NONE;
+    var parentInnerId = WindowUtils.WINDOW_ID_NONE;
     if (innerWinParent !== null) {
       parentOuterId = innerWinParent.outerId;
       parentInnerId = innerWinParent.innerId;
@@ -51,8 +51,8 @@ var NewDocUser = {
       url:  requestURI.spec // TODO useless?
     };
 
-    var parentOuterId = msgData.parentInner === WindowUtils.NO_WINDOW
-                      ? WindowUtils.NO_WINDOW
+    var parentOuterId = msgData.parentInner === WindowUtils.WINDOW_ID_NONE
+                      ? WindowUtils.WINDOW_ID_NONE
                       : WinMap.getInnerWindowFromId(msgData.parentInner).outerId;
 
     var outerData = WinMap.addToOuterHistory(entry, msgData.outer, parentOuterId);
@@ -64,7 +64,7 @@ var NewDocUser = {
     if (WinMap.isTabId(msgData.parentInner)) {
       // topInnerId is not valid, it doesn't exist (yet)
       // requestURI is the new top document (or a download/redir, it is undefined)
-      topInnerId = WindowUtils.NO_WINDOW;
+      topInnerId = WindowUtils.WINDOW_ID_NONE;
       docUser = WinMap.findUser(requestURI, topInnerId, msgData.outer);
     } else {
       topInnerId = WinMap.getInnerWindowFromId(msgData.visibleInner).topId;
@@ -218,7 +218,7 @@ var WinMap = { // stores all current outer/inner windows
     delete this._waitingRemoval[id];
 
     // dec counter of parent
-    if (parent !== WindowUtils.NO_WINDOW) {
+    if (parent !== WindowUtils.WINDOW_ID_NONE) {
       console.assert(this._getChildrenCount(parent) > 0, "invalid child counter", parent, this._childrenCount);
       this._decChildrenCount(parent);
     }
@@ -239,8 +239,8 @@ var WinMap = { // stores all current outer/inner windows
     var parentOuterId;
     var parentInnerId;
     if (isTopWindow(win)) {
-      parentOuterId = WindowUtils.NO_WINDOW;
-      parentInnerId = WindowUtils.NO_WINDOW;
+      parentOuterId = WindowUtils.WINDOW_ID_NONE;
+      parentInnerId = WindowUtils.WINDOW_ID_NONE;
     } else {
       var parent = getDOMUtils(win.parent);
       parentOuterId = parent.outerWindowID;
@@ -260,7 +260,7 @@ var WinMap = { // stores all current outer/inner windows
 
     if (innerId in WinMap._inner === false) {
       var openerId = win.opener === null
-                   ? WindowUtils.NO_WINDOW
+                   ? WindowUtils.WINDOW_ID_NONE
                    : getDOMUtils(win.opener).currentInnerWindowID;
       WinMap.addInner({
         openerInnerId: openerId,
@@ -305,7 +305,7 @@ var WinMap = { // stores all current outer/inner windows
 
   getInnerWindowFromId: function(id) {
     console.assert(typeof id === "number", "getInnerWindowFromId invalid type", id);
-    console.assert(id !== WindowUtils.NO_WINDOW, "inner id - invalid value", id);
+    console.assert(id !== WindowUtils.WINDOW_ID_NONE, "inner id - invalid value", id);
     if (id in this._inner) {
       return id in this._waitingRemoval ? null : this._inner[id];
     }
@@ -334,7 +334,7 @@ var WinMap = { // stores all current outer/inner windows
     } else {
       // new inner window
       console.assert(this._getChildrenCount(innerObj.innerId) === 0, "new window should not have children", innerObj);
-      if (innerObj.parentId !== WindowUtils.NO_WINDOW) {
+      if (innerObj.parentId !== WindowUtils.WINDOW_ID_NONE) {
         this._incChildrenCount(innerObj.parentId);
       }
     }
@@ -400,18 +400,18 @@ var WinMap = { // stores all current outer/inner windows
 
 
   isFrameId: function(parentId) { // outer/inner
-    return parentId !== WindowUtils.NO_WINDOW;
+    return parentId !== WindowUtils.WINDOW_ID_NONE;
   },
 
 
   isTabId: function(parentId) {
-    return parentId === WindowUtils.NO_WINDOW;
+    return parentId === WindowUtils.WINDOW_ID_NONE;
   },
 
 
   getTabId: function(outerId) { // used by fromOpener
     console.assert(typeof outerId === "number", "getTabId invalid type", outerId);
-    console.assert(outerId !== WindowUtils.NO_WINDOW, "getTabId invalid param", outerId);
+    console.assert(outerId !== WindowUtils.WINDOW_ID_NONE, "getTabId invalid param", outerId);
     var all = this._outer;
     if ((outerId in all) === false) {
       this._update();
@@ -434,7 +434,7 @@ var WinMap = { // stores all current outer/inner windows
 
     // check if this top document (or its elements) has previous requests to tld
     var userId;
-    if (topInnerId === WindowUtils.NO_WINDOW) {
+    if (topInnerId === WindowUtils.WINDOW_ID_NONE) {
       // assume uriDoc as a top document
       console.assert(typeof tabId !== "undefined", "topInnerId invalid; tabId not defined");
       userId = UserState.getTabDefaultFirstPartyUser(tld, tabId);
@@ -461,7 +461,7 @@ var WinMap = { // stores all current outer/inner windows
   getNextSavedUser: function(id) {
     var entry;
     var innerId = id;
-    while (innerId !== WindowUtils.NO_WINDOW) {
+    while (innerId !== WindowUtils.WINDOW_ID_NONE) {
       entry = this.getInnerWindowFromId(innerId);
       if ("docUserObj" in entry) {
         return entry.docUserObj;
@@ -588,7 +588,7 @@ var DebugWinMap = {
 
     // removed outer window?
     var currentInner = (win === null) || (win.location === null)
-                     ? WindowUtils.NO_WINDOW
+                     ? WindowUtils.WINDOW_ID_NONE
                      : getDOMUtils(win).currentInnerWindowID;
     var ok = false;
 
@@ -613,7 +613,7 @@ var DebugWinMap = {
         s += "<waitingRemoval>";
       }
 
-      if (obj.openerId !== WindowUtils.NO_WINDOW) {
+      if (obj.openerId !== WindowUtils.WINDOW_ID_NONE) {
         s += "[opener=" + obj.openerId + "] ";
       }
 
@@ -630,7 +630,7 @@ var DebugWinMap = {
       if (obj.originalUri.spec.length === 0) {
         s += "<url empty>";
       }
-      if (currentInner === WindowUtils.NO_WINDOW) {
+      if (currentInner === WindowUtils.WINDOW_ID_NONE) {
         s += " <outer removed>";
       } else {
         if (currentInner === obj.innerId) {
@@ -663,11 +663,11 @@ var DebugWinMap = {
 var LoginCopy = {  // TODO needed only for new outer wins
   fromOpener: function(msgData, outerData, src) { // TODO still necessary?
     console.assert("openerInnerId" in msgData, "openerInnerId not defined", msgData);
-    if (msgData.openerInnerId === WindowUtils.NO_WINDOW) {
+    if (msgData.openerInnerId === WindowUtils.WINDOW_ID_NONE) {
       return;
     }
 
-    console.assert(msgData.parentInner === WindowUtils.NO_WINDOW, "do frames have an opener? maybe, target=name_iframe");
+    console.assert(msgData.parentInner === WindowUtils.WINDOW_ID_NONE, "do frames have an opener? maybe, target=name_iframe");
 
     if ("x-opener-order" in outerData) {
       outerData["x-opener-order"] += " " + src;
@@ -682,8 +682,8 @@ var LoginCopy = {  // TODO needed only for new outer wins
       console.assert(outerData.openerOuterId === WinMap.getInnerWindowFromId(msgData.openerInnerId).outerId,
                      "outerData.openerOuterId !== msgData.openerOuter");
     } else {
-      outerData.openerOuterId = msgData.openerInnerId === WindowUtils.NO_WINDOW
-                              ? WindowUtils.NO_WINDOW
+      outerData.openerOuterId = msgData.openerInnerId === WindowUtils.WINDOW_ID_NONE
+                              ? WindowUtils.WINDOW_ID_NONE
                               : WinMap.getInnerWindowFromId(msgData.openerInnerId).outerId;
     }
 

@@ -136,5 +136,5 @@ var UIUtils = {
 
 
 var WindowUtils = {
-  NO_WINDOW: -1
+  WINDOW_ID_NONE: -1
 };

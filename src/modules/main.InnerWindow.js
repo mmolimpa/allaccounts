@@ -11,8 +11,8 @@ function InnerWindow(msgData) {
   console.assert(typeof msgData.origin === "string", "InnerWindow origin invalid type", msgData.origin);
   console.assert(typeof msgData.url === "string", "InnerWindow url invalid type", msgData.url);
 
-  console.assert(msgData.inner !== WindowUtils.NO_WINDOW, "InnerWindow id invalid value", msgData.inner);
-  console.assert(msgData.outer !== WindowUtils.NO_WINDOW, "InnerWindow outer invalid value", msgData.outer);
+  console.assert(msgData.inner !== WindowUtils.WINDOW_ID_NONE, "InnerWindow id invalid value", msgData.inner);
+  console.assert(msgData.outer !== WindowUtils.WINDOW_ID_NONE, "InnerWindow outer invalid value", msgData.outer);
   console.assert(msgData.url.length > 0, "empty url");
 
   if (msgData.origin.length === 0) {
@@ -34,11 +34,11 @@ function InnerWindow(msgData) {
 
 
 InnerWindow.prototype = {
-  _id:     WindowUtils.NO_WINDOW,
-  _topId:  WindowUtils.NO_WINDOW,
-  _parent: WindowUtils.NO_WINDOW,
-  _opener: WindowUtils.NO_WINDOW,
-  _outer:  WindowUtils.NO_WINDOW,
+  _id:     WindowUtils.WINDOW_ID_NONE,
+  _topId:  WindowUtils.WINDOW_ID_NONE,
+  _parent: WindowUtils.WINDOW_ID_NONE,
+  _opener: WindowUtils.WINDOW_ID_NONE,
+  _outer:  WindowUtils.WINDOW_ID_NONE,
   _uri:    null,
   _tld:    null,
   _origin: null,
@@ -83,7 +83,7 @@ InnerWindow.prototype = {
 
 
   get isTop() {
-    return this._parent === WindowUtils.NO_WINDOW;
+    return this._parent === WindowUtils.WINDOW_ID_NONE;
   },
 
 
@@ -112,9 +112,9 @@ InnerWindow.prototype = {
 
 
   get topId() {
-    if (this._topId === WindowUtils.NO_WINDOW) {
+    if (this._topId === WindowUtils.WINDOW_ID_NONE) {
       this._topId = this._getTopInnerId(this._id);
-      console.assert(this._topId !== WindowUtils.NO_WINDOW, "top id not found?");
+      console.assert(this._topId !== WindowUtils.WINDOW_ID_NONE, "top id not found?");
     }
     return this._topId;
   },
@@ -154,10 +154,10 @@ InnerWindow.prototype = {
     if (this._id !== this._topId) {
       rv.topId = this._topId;
     }
-    if (this._parent !== WindowUtils.NO_WINDOW) {
+    if (this._parent !== WindowUtils.WINDOW_ID_NONE) {
       rv.parentId = this._parent;
     }
-    if (this._opener !== WindowUtils.NO_WINDOW) {
+    if (this._opener !== WindowUtils.WINDOW_ID_NONE) {
       rv.openerId = this._opener;
     }
     return rv;

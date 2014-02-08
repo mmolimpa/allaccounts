@@ -36,8 +36,8 @@ function onNewDocument(win) {
     origin:      win.location.origin,
     inner:       utils.currentInnerWindowID,
     outer:       utils.outerWindowID,
-    parentInner:   -1, // WindowUtils.NO_WINDOW
-    openerInnerId: -1  // WindowUtils.NO_WINDOW
+    parentInner:   -1, // WindowUtils.WINDOW_ID_NONE
+    openerInnerId: -1  // WindowUtils.WINDOW_ID_NONE
   };
 
 
