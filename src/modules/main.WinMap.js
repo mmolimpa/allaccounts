@@ -157,27 +157,79 @@ var NewDocUser = {
 var WinMap = { // stores all current outer/inner windows
   _outer: Object.create(null),
   _inner: Object.create(null),
-  _remove: true, // for debug
 
 
   removeOuter: function(id) {
-    if (this._remove) {
-      delete this._outer[id];
+    // TODO check remaining inners?
+    delete this._outer[id];
+  },
+
+
+  // when a window is loading, iframes from previous window may still be
+  // active (i.e. running code). we don't remove it until all children have
+  // been removed. Otherwise, children will refer to a non-existent window.
+  _waitingRemoval: Object.create(null),
+  _childrenCount: Object.create(null),
+
+
+  _getChildrenCount: function(id) {
+    var counter = this._childrenCount;
+    return id in counter ? counter[id] : 0;
+  },
+
+
+  _incChildrenCount: function(id) {
+    if (id in this._childrenCount) {
+      this._childrenCount[id]++;
     } else {
-      if (this._outer[id]) {
-        this._outer[id]["x-deleted"] = true;
-      }
+      this._childrenCount[id] = 1;
+    }
+  },
+
+
+  _decChildrenCount: function(id) {
+    var counter = this._childrenCount;
+    console.assert(id in counter, "id not found in _decChildrenCount", id);
+    console.assert(counter[id] > 0, "invalid state in _decChildrenCount", id, counter[id]);
+    counter[id]--;
+    if (counter[id] === 0) {
+      delete counter[id];
     }
   },
 
 
   removeInner: function(id) {
-    if (this._remove) {
-      // _inner[id] may not exist (not a content window).
-      delete this._inner[id]; // it will keep references in _outer
-    } else {
-      if (this._inner[id]) {
-        this._inner[id]["x-deleted"] = true;
+    if ((id in this._inner) === false) {
+      // id does not exist (as a content window).
+      return;
+    }
+
+    // Do not remove if there is still an iframe
+    if (this._getChildrenCount(id) > 0) {
+      console.assert((id in this._waitingRemoval) === false, "id already in _waitingRemoval", id);
+      this._waitingRemoval[id] = true;
+      return;
+    }
+
+    // id has no children
+    console.assert((id in this._childrenCount) === false, "id should not exist in _childrenCount at this point", this._childrenCount[id]);
+    var parent = this._inner[id].parentId;
+    delete this._inner[id];
+    delete this._waitingRemoval[id];
+
+    // dec counter of parent
+    if (parent !== WindowUtils.NO_WINDOW) {
+      console.assert(this._getChildrenCount(parent) > 0, "invalid child counter", parent, this._childrenCount);
+      this._decChildrenCount(parent);
+    }
+
+    // [removed]
+    //    [removed]
+    //       [removed] <parent>
+    //          <id>   <===
+    if (parent in this._waitingRemoval) {
+      if (this._getChildrenCount(parent) === 0) {
+        this.removeInner(parent);
       }
     }
   },
@@ -255,7 +307,7 @@ var WinMap = { // stores all current outer/inner windows
     console.assert(typeof id === "number", "getInnerWindowFromId invalid type", id);
     console.assert(id !== WindowUtils.NO_WINDOW, "inner id - invalid value", id);
     if (id in this._inner) {
-      return this._inner[id];
+      return id in this._waitingRemoval ? null : this._inner[id];
     }
     this._update();
     console.assert(id in this._inner, "getInnerWindowFromId - innerId not found", id);
@@ -270,13 +322,21 @@ var WinMap = { // stores all current outer/inner windows
 
   addInner: function(msgData) {
     var innerObj = new InnerWindow(msgData);
+    console.assert((innerObj.parentId in this._waitingRemoval) === false, "addInner: parent doesn't exist anymore", innerObj);
 
     // current entry may be a "placeholder" doc (from an unloaded tab)
     // added by WinMap._update. The real document may have the same id.
     if (innerObj.innerId in this._inner) {
       var entry = this._inner[innerObj.innerId];
-      console.assert(entry.outerId === msgData.outer, "different outer id");
-      console.assert((entry.originalUri.spec === "about:blank") || (entry.originalUri.spec === msgData.url), "different url");
+      console.assert(entry.parentId === innerObj.parentId, "different parentId", innerObj.parentId, entry.parentId);
+      console.assert(entry.outerId === innerObj.outerId, "different outer id");
+      console.assert((entry.originalUri.spec === "about:blank") || (entry.originalUri.spec === innerObj.originalUri.spec), "different url");
+    } else {
+      // new inner window
+      console.assert(this._getChildrenCount(innerObj.innerId) === 0, "new window should not have children", innerObj);
+      if (innerObj.parentId !== WindowUtils.NO_WINDOW) {
+        this._incChildrenCount(innerObj.parentId);
+      }
     }
 
     // all inner windons should be preserved to allow a page from bfcache to use its original login
@@ -513,6 +573,12 @@ var DebugWinMap = {
       }
     }
 
+    output.push("_waitingRemoval");
+    output.push(JSON.stringify(WinMap._waitingRemoval, null, 2));
+
+    output.push("_childrenCount");
+    output.push(JSON.stringify(WinMap._childrenCount, null, 2));
+
     return output.join("\n");
   },
 
@@ -534,14 +600,17 @@ var DebugWinMap = {
       ok = true;
       usedInners.push(obj.innerId);
       var s = padding;
-      s += "x-deleted"        in obj ? "-" : "*";
 
       s += " " + intOuterId + "[" + obj.innerId + "] ";
 
       if (WinMap.isTabId(obj.parentId) === false) { // TODO obj.isTop === false
         if ((obj.parentId in WinMap._inner) === false) {
-          s += "<parent not found! " + obj.parentId + ">";
+          s += "<parent " + obj.parentId + " not found!>";
         }
+      }
+
+      if (obj.innerId in WinMap._waitingRemoval) {
+        s += "<waitingRemoval>";
       }
 
       if (obj.openerId !== WindowUtils.NO_WINDOW) {
