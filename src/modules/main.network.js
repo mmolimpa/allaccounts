@@ -24,14 +24,14 @@ var NetworkObserver = {
     observe: function HttpListeners_request(subject, topic, data) {
       var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
       var myChannel = new ChannelProperties(httpChannel);
-      if (myChannel.linkedWindow === null) {
+      if (myChannel.linkedWindowId === WindowUtils.WINDOW_ID_NONE) {
         var cookies = myChannel.headersFromRequest()["cookie"];
         if (cookies !== null) {
           //console.log("request  - no window + Cookie", httpChannel.URI, cookies);
         }
       }
 
-      var docUser = NetworkObserver._request._getUser(httpChannel, myChannel);
+      var docUser = NetworkObserver._request._getUser(myChannel, httpChannel.URI);
       if (docUser === null) {
         return; // send default cookies
       }
@@ -43,24 +43,21 @@ var NetworkObserver = {
     },
 
 
-    _getUser: function(httpChannel, myChannel) {
-      var uri = httpChannel.URI;
-      var win = myChannel.linkedWindow;
-      var winutils = win === null ? null : getDOMUtils(win);
+    _getUser: function(myChannel, uri) {
       var docUser;
       var isWin = false;
 
       switch (myChannel.channelType) {
         case myChannel.CHANNEL_CONTENT_ASSET:
-          docUser = WinMap.getUserForAssetUri(winutils.currentInnerWindowID, uri);
+          docUser = WinMap.getUserForAssetUri(myChannel.linkedWindow, uri);
           break;
         case myChannel.CHANNEL_CONTENT_WIN:
-          docUser = NewDocUser.addDocumentRequest(fillDocReqData(win, winutils), uri);
+          docUser = NewDocUser.addWindowRequest(myChannel.linkedWindow, uri);
           isWin = true;
           break;
         case myChannel.CHANNEL_VIEW_SOURCE:
           console.log("REQUEST - viewsource", uri);
-          return NewDocUser.viewSourceRequest(win, uri);
+          return NewDocUser.viewSourceRequest(myChannel.linkedWindowId, uri);
         default: // myChannel.CHANNEL_UNKNOWN
           // request from chrome (favicon, updates, <link rel="next"...)
           // safebrowsing, http://wpad/wpad.dat
@@ -70,21 +67,22 @@ var NetworkObserver = {
 
       if (docUser !== null) {
         // log to topData.thirdPartyUsers
-        UserState.addRequest(uri, win, isWin, docUser.findHostUser(getTldFromHost(uri.host)));
+        UserState.addRequest(uri, myChannel.linkedWindow, isWin, docUser.findHostUser(getTldFromHost(uri.host)));
         return docUser;
       }
 
       // log to topData.thirdPartyUsers
-      UserState.addRequest(uri, win, isWin, null);
+      UserState.addRequest(uri, myChannel.linkedWindow, isWin, null);
       if (LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(uri.host)))) {
-        console.log("REQ ERR - login found but not used!", isWin, uri, win.location.href, winutils.currentInnerWindowID);
+        var win = myChannel.linkedWindow;
+        console.log("REQ ERR - login found but not used!", isWin, uri, win.originalUri, win.innerId);
       }
 
       if (myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN) {
         return null;
       }
 
-      var docUser3 = WinMap.getAsAnonUser(winutils.currentInnerWindowID, uri);
+      var docUser3 = WinMap.getAsAnonUser(myChannel.linkedWindow, uri);
       return docUser3.is1stParty(docUser3.ownerTld) ? null : docUser3;
     }
   },
@@ -94,13 +92,13 @@ var NetworkObserver = {
     observe: function HttpListeners_response(subject, topic, data) {
       var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
       var myChannel = new ChannelProperties(httpChannel);
-      if (myChannel.linkedWindow === null) {
+      if (myChannel.linkedWindowId === WindowUtils.WINDOW_ID_NONE) {
         var setCookies2 = myChannel.headersFromResponse()["set-cookie"];
         if (setCookies2 !== null) {
           console.log("RESPONSE - no window + SetCookie", httpChannel.URI, setCookies2);
         }
       }
-      var docUser = NetworkObserver._response._getUser(httpChannel, myChannel);
+      var docUser = NetworkObserver._response._getUser(myChannel);
       if (docUser === null) {
         return; // set default cookies
       }
@@ -123,20 +121,16 @@ var NetworkObserver = {
     },
 
 
-    _getUser: function(httpChannel, myChannel) {
-      var uri = httpChannel.URI;
-      var win = myChannel.linkedWindow;
-      var winutils = win === null ? null : getDOMUtils(win);
+    _getUser: function(myChannel) {
+      var uri = myChannel.underlyingChannel.URI;
       var docUser;
 
       switch (myChannel.channelType) {
         case myChannel.CHANNEL_CONTENT_ASSET:
-          docUser = WinMap.getUserForAssetUri(winutils.currentInnerWindowID, uri);
+          docUser = WinMap.getUserForAssetUri(myChannel.linkedWindow, uri);
           break;
         case myChannel.CHANNEL_CONTENT_WIN:
-          docUser = NewDocUser.addDocumentResponse(httpChannel,
-                                                   winutils.currentInnerWindowID,
-                                                   winutils.outerWindowID);
+          docUser = NewDocUser.addDocumentResponse(myChannel.underlyingChannel, myChannel.linkedWindow);
           break;
         case myChannel.CHANNEL_VIEW_SOURCE:
           throw new Error("_response => CHANNEL_VIEW_SOURCE");
@@ -152,39 +146,16 @@ var NetworkObserver = {
       // anon response
 
       if (LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(uri.host)))) {
-        console.log("RESPONSE ERR - login found but not used!", uri, win.location.href, winutils.currentInnerWindowID);
+        var win = myChannel.linkedWindow;
+        console.log("RESPONSE ERR - login found but not used!", uri, win.originalUri, win.innerId);
       }
 
       if (myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN) {
         return null;
       }
 
-      var docUser3 = WinMap.getAsAnonUser(winutils.currentInnerWindowID, uri);
+      var docUser3 = WinMap.getAsAnonUser(myChannel.linkedWindow, uri);
       return docUser3.is1stParty(docUser3.ownerTld) ? null : docUser3;
     }
   }
 };
-
-
-
-
-function fillDocReqData(win, utils) {
-  var msgData = {
-    visibleInner:  utils.currentInnerWindowID,
-    outer:         utils.outerWindowID,
-    parentInner:   WindowUtils.WINDOW_ID_NONE,
-    openerInnerId: WindowUtils.WINDOW_ID_NONE
-  };
-
-  if (win !== win.top) {
-    console.assert(win.opener === null, "is an iframe supposed to have an opener?");
-    console.assert(win.parent !== null, "iframe without a parent element");
-    msgData.parentInner = getDOMUtils(win.parent).currentInnerWindowID;
-  }
-
-  if (win.opener) {
-    msgData.openerInnerId = getDOMUtils(win.opener).currentInnerWindowID;
-  }
-
-  return msgData;
-}

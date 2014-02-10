@@ -23,7 +23,7 @@ var NewDocUser = {
 
     var outerData = WinMap.addToOuterHistory(outerEntry, msgData.outer, parentOuterId);
 
-    LoginCopy.fromOpener(msgData, outerData, "domcreated");
+    LoginCopy.fromOpener("domcreated", outerData, msgData.openerInnerId, msgData.outer);
 
     var innerObj = WinMap.addInner(msgData);
 
@@ -40,46 +40,47 @@ var NewDocUser = {
   },
 
 
-  addDocumentRequest: function(msgData, requestURI) {
-    var isTop = WinMap.isTabId(msgData.parentInner);
-    var tldPrev = isTop ? CrossTldLogin.getPrevDocTld(msgData.outer) : null; // should be called before addToOuterHistory
+  addWindowRequest: function(channelWin, requestURI) {
+    var tldPrev = channelWin.isTop
+                ? CrossTldLogin.getPrevDocTld(channelWin.outerId) // should be called before addToOuterHistory
+                : null;
 
     var entry = {
       __proto__: null,
       type: "request-doc", // "request"
-      visibleInnerId: msgData.visibleInner, // currentInnerId / "previous" inner document
+      visibleInnerId: channelWin.innerId, // currentInnerId / "previous" inner document
       url:  requestURI.spec // TODO useless?
     };
 
-    var parentOuterId = msgData.parentInner === WindowUtils.WINDOW_ID_NONE
+    var parentOuterId = channelWin.isTop
                       ? WindowUtils.WINDOW_ID_NONE
-                      : WinMap.getInnerWindowFromId(msgData.parentInner).outerId;
+                      : WinMap.getInnerWindowFromId(channelWin.parentId).outerId;
 
-    var outerData = WinMap.addToOuterHistory(entry, msgData.outer, parentOuterId);
+    var outerData = WinMap.addToOuterHistory(entry, channelWin.outerId, parentOuterId);
 
-    LoginCopy.fromOpener(msgData, outerData, "request");
+    LoginCopy.fromOpener("request", outerData, channelWin.openerId, channelWin.outerId);
 
     var topInnerId;
     var docUser;
-    if (WinMap.isTabId(msgData.parentInner)) {
+    if (channelWin.isTop) {
       // topInnerId is not valid, it doesn't exist (yet)
       // requestURI is the new top document (or a download/redir, it is undefined)
       topInnerId = WindowUtils.WINDOW_ID_NONE;
-      docUser = WinMap.findUser(requestURI, topInnerId, msgData.outer);
+      docUser = WinMap.findUser(requestURI, topInnerId, channelWin.outerId);
     } else {
-      topInnerId = WinMap.getInnerWindowFromId(msgData.visibleInner).topId;
+      topInnerId = channelWin.topId;
       docUser = WinMap.findUser(requestURI, topInnerId);
     }
 
     if (docUser === null) {
       // anon request: inherit it from a parent
-      docUser = WinMap.getNextSavedUser(msgData.parentInner);
+      docUser = WinMap.getNextSavedUser(channelWin.parentId);
     }
 
 
-    if (isTop && (docUser === null)) {
+    if (channelWin.isTop && (docUser === null)) {
       // BUG docUser from a logged in iframe never will be != null
-      docUser = CrossTldLogin.parse(tldPrev, requestURI, msgData.outer, topInnerId);
+      docUser = CrossTldLogin.parse(tldPrev, requestURI, channelWin.outerId, topInnerId);
       if (docUser !== null) {
         entry["x-tld-login"] = true;
       }
@@ -94,14 +95,14 @@ var NewDocUser = {
 
   // getLoginForDocumentResponse
   // currentInnerId (possibly) is going to be replaced by a new document
-  addDocumentResponse: function(channel, currentInnerId, outerId) {
+  addDocumentResponse: function(channel, channelWin) {
     var stat = channel.responseStatus;
     var entry = {
       __proto__:   null,
       type:        "response-doc",
       http_status: stat,
       contentType: channel.contentType,
-      visibleInnerId: currentInnerId,
+      visibleInnerId: channelWin.innerId,
       url:            channel.URI.spec
     };
     if (stat !== 200) {
@@ -113,11 +114,11 @@ var NewDocUser = {
       }
     }
 
-    WinMap.addToOuterHistory(entry, outerId);
+    WinMap.addToOuterHistory(entry, channelWin.outerId);
 
     // should fetch login from request, because it could be a not logged in iframe
     // (which should inherit login from parent)
-    var log = this._findDocRequest(currentInnerId, outerId);
+    var log = this._findDocRequest(channelWin.innerId, channelWin.outerId);
     console.assert(log !== null, "reponse without a request");
     return "reqDocUserObj" in log ? log.reqDocUserObj : null;
   },
@@ -137,7 +138,8 @@ var NewDocUser = {
   },
 
 
-  viewSourceRequest: function(sourceWin, uri) { // sourceWin = viewSource.xul
+  viewSourceRequest: function(sourceWinId, uri) { // sourceWin = viewSource.xul
+    var sourceWin = Services.wm.getCurrentInnerWindowWithId(sourceWinId);
     var chromeWin = UIUtils.getTopLevelWindow(sourceWin);
     if (chromeWin && chromeWin.opener) {
       if (UIUtils.isMainWindow(chromeWin.opener)) {
@@ -275,6 +277,7 @@ var WinMap = { // stores all current outer/inner windows
 
 
   _update: function() {
+    console.log("WinMap._update triggered");
     function forEachWindow(fn, win) {
       fn(win);
       for (var idx = win.length - 1; idx > -1; idx--) {
@@ -289,6 +292,7 @@ var WinMap = { // stores all current outer/inner windows
         forEachWindow(WinMap._addWindow, tabList[idx].linkedBrowser.contentWindow);
       }
     }
+    // TODO a "up-to-date" flag
   },
 
 
@@ -310,8 +314,9 @@ var WinMap = { // stores all current outer/inner windows
       return id in this._waitingRemoval ? null : this._inner[id];
     }
     this._update();
-    console.assert(id in this._inner, "getInnerWindowFromId - innerId not found", id);
-    return this._inner[id];
+    //console.assert(id in this._inner, "getInnerWindowFromId - innerId not found", id);
+    //return this._inner[id];
+    return id in this._inner ? this._inner[id] : null;
   },
 
 
@@ -473,9 +478,9 @@ var WinMap = { // stores all current outer/inner windows
 
 
   // called by request/response: <img>, <script>, <style>, XHR... (but not <iframe>)
-  getUserForAssetUri: function(innerId, resUri) {
+  getUserForAssetUri: function(innerWin, resUri) {
     // parent window docUser
-    var docUser = this.getSavedUser(innerId);
+    var docUser = this.getSavedUser(innerWin.innerId);
     if (docUser !== null) {
       // BUG? facebook img inside twitter ignores facebook id?
       return docUser;
@@ -484,20 +489,19 @@ var WinMap = { // stores all current outer/inner windows
     // owner document is anon
 
     // resUri could be a logged in tld (different from anonymous innerId)
-    var assetUser = this.findUser(resUri, WinMap.getInnerWindowFromId(innerId).topId);
-    return assetUser === null ? null : this.getAsAnonUser(innerId, resUri);
+    var assetUser = this.findUser(resUri, innerWin.topId);
+    return assetUser === null ? null : this.getAsAnonUser(innerWin, resUri);
   },
 
 
-  getAsAnonUser: function(innerId, uri) { // TODO remove uri
-    var entry = WinMap.getInnerWindowFromId(innerId);
-    console.assert(("docUserObj" in entry) === false, "innerId is not anon", uri, innerId, entry);
-    var tld = entry.eTld;
+  getAsAnonUser: function(innerWin, uri) { // TODO remove uri
+    console.assert(("docUserObj" in innerWin) === false, "innerWin is not anon", uri, innerWin);
+    var tld = innerWin.eTld;
     if (tld === null) {
       // "about:"
-      tld = getTldForUnsupportedScheme(entry.originalUri);
+      tld = getTldForUnsupportedScheme(innerWin.originalUri);
     }
-    return new DocumentUser(null, tld, entry.topId);
+    return new DocumentUser(null, tld, innerWin.topId);
   },
 
 
@@ -661,13 +665,10 @@ var DebugWinMap = {
 
 
 var LoginCopy = {  // TODO needed only for new outer wins
-  fromOpener: function(msgData, outerData, src) { // TODO still necessary?
-    console.assert("openerInnerId" in msgData, "openerInnerId not defined", msgData);
-    if (msgData.openerInnerId === WindowUtils.WINDOW_ID_NONE) {
+  fromOpener: function(src, outerData, openerId, outerId) { // TODO still necessary?
+    if (openerId === WindowUtils.WINDOW_ID_NONE) {
       return;
     }
-
-    console.assert(msgData.parentInner === WindowUtils.WINDOW_ID_NONE, "do frames have an opener? maybe, target=name_iframe");
 
     if ("x-opener-order" in outerData) {
       outerData["x-opener-order"] += " " + src;
@@ -679,18 +680,18 @@ var LoginCopy = {  // TODO needed only for new outer wins
     }
 
     if ("openerOuterId" in outerData) {
-      console.assert(outerData.openerOuterId === WinMap.getInnerWindowFromId(msgData.openerInnerId).outerId,
-                     "outerData.openerOuterId !== msgData.openerOuter");
+      console.assert(outerData.openerOuterId === WinMap.getInnerWindowFromId(openerId).outerId,
+                     "outerData.openerOuterId !== openerOuter");
     } else {
-      outerData.openerOuterId = msgData.openerInnerId === WindowUtils.WINDOW_ID_NONE
+      outerData.openerOuterId = openerId === WindowUtils.WINDOW_ID_NONE
                               ? WindowUtils.WINDOW_ID_NONE
-                              : WinMap.getInnerWindowFromId(msgData.openerInnerId).outerId;
+                              : WinMap.getInnerWindowFromId(openerId).outerId;
     }
 
     outerData["opener-logins-migrated"] = outerData.openerOuterId;
 
     var openerTabId = WinMap.getTabId(outerData.openerOuterId);
-    var targetTabId = WinMap.getTabId(msgData.outer);
+    var targetTabId = WinMap.getTabId(outerId);
     this._copyLogins(targetTabId, openerTabId);
   },
 

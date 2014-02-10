@@ -54,12 +54,6 @@ var UIUtils = {
   },
 
 
-  isContentWindow: function(win) {
-    var browser = UIUtils.getParentBrowser(win);
-    return browser === null ? null : UIUtils.isContentBrowser(browser);
-  },
-
-
   // browser.xul has browser elements all over the place
   isContentBrowser: function(browser) {
     console.assert(browser !== null, "browser should not be null");

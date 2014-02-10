@@ -44,9 +44,10 @@ function ChannelProperties(httpChannel) {
     return;
   }
 
-  this._win = Cu.getWeakReference(win);
+  this._innerId = getDOMUtils(win).currentInnerWindowID;
+  this._innerWindow = WinMap.getInnerWindowFromId(this._innerId);
 
-  if (UIUtils.isContentWindow(win)) {
+  if (this._innerWindow !== null) {
     this._type = this._isWindow(httpChannel) ? this.CHANNEL_CONTENT_WIN
                                              : this.CHANNEL_CONTENT_ASSET;
     return;
@@ -68,7 +69,8 @@ function ChannelProperties(httpChannel) {
 
 
 ChannelProperties.prototype = {
-  _win:  null,
+  _innerId: WindowUtils.WINDOW_ID_NONE,
+  _innerWindow: null,
   _channel: null,
 
   _type: 0,
@@ -90,8 +92,18 @@ ChannelProperties.prototype = {
   },
 
 
+  get underlyingChannel() {
+    return this._channel.get();
+  },
+
+
+  get linkedWindowId() {
+    return this._innerId;
+  },
+
+
   get linkedWindow() {
-    return this._win === null ? null : this._win.get();
+    return this._innerWindow;
   },
 
 

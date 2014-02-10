@@ -181,7 +181,8 @@ var UserState = {
   //   It is just a log, it is not used by findUser
   //
   addRequest: function(uri, channelWindow, isWinChannel, usr) {
-    if (isWinChannel && isTopWindow(channelWindow)) {
+    if (isWinChannel && channelWindow.isTop) {
+      // new top-level browsing context (or a download/redir)
       return;
     }
 
@@ -190,14 +191,14 @@ var UserState = {
       return; // about: ftp:
     }
 
-    var topData = WinMap.getInnerWindowFromObj(channelWindow.top);
+    var topData = channelWindow.topWindow;
     var firstPartyRequest = tldRequest === topData.eTld; // about: => topData.eTld=null
     if (firstPartyRequest) {
       return;
     }
 
     console.assert((usr !== null) || (LoginDB.isLoggedIn(StringEncoding.encode(tldRequest)) === false),
-                   "addRequest usr=null loggedin tld", tldRequest, isWinChannel ? "window" : "resource", usr, uri.prePath, channelWindow.location.origin);
+                   "addRequest usr=null loggedin tld", tldRequest, isWinChannel ? "window" : "resource", usr, uri.prePath, channelWindow.origin);
 
     // user=null => null or anon window/asset request using an inherited user
     if ("thirdPartyUsers" in topData) {
