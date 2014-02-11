@@ -128,7 +128,7 @@ InnerWindow.prototype = {
     console.assert(id in all, "_getTopInnerId not found", this);
     var win = all[id];
     if (!win) console.trace("win undefined");
-    while (WinMap.isFrameId(win.parentId)) {
+    while (win.isTop === false) {
       id = win.parentId;
       win = all[id];
     }

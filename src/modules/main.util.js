@@ -178,7 +178,7 @@ function enableErrorMsg(browser, innerId, notSupportedFeature, err = undefined) 
       "inner-id": innerWin.innerId,
       "error": err
     };
-    if (WinMap.isFrameId(innerWin.parentId)) {
+    if (innerWin.isTop === false) {
       entry.isFrame = true;
     }
     WinMap.addToOuterHistory(entry, innerWin.outerId);

@@ -309,14 +309,11 @@ var RemoteBrowserMethod = {
 
 
   "new-doc": function(msgData, browser) {
-    var innerWinParent;
-    var isTop;
-    if (msgData.parentInner === WindowUtils.WINDOW_ID_NONE) {
-      innerWinParent = null;
-      isTop = true;
-    } else {
+    var innerWinParent = null;
+    var isTop = true;
+    if (msgData.parentInner !== WindowUtils.WINDOW_ID_NONE) {
       innerWinParent = WinMap.getInnerWindowFromId(msgData.parentInner);
-      isTop = WinMap.isTabId(innerWinParent.outerId);
+      isTop = innerWinParent.isTop;
     }
     var customize = NewDocUser.addNewDocument(msgData, innerWinParent);
     var tab = UIUtils.getLinkedTabFromBrowser(browser);

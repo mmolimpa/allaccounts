@@ -404,16 +404,6 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  isFrameId: function(parentId) { // outer/inner
-    return parentId !== WindowUtils.WINDOW_ID_NONE;
-  },
-
-
-  isTabId: function(parentId) {
-    return parentId === WindowUtils.WINDOW_ID_NONE;
-  },
-
-
   getTabId: function(outerId) { // used by fromOpener
     console.assert(typeof outerId === "number", "getTabId invalid type", outerId);
     console.assert(outerId !== WindowUtils.WINDOW_ID_NONE, "getTabId invalid param", outerId);
@@ -423,7 +413,7 @@ var WinMap = { // stores all current outer/inner windows
     }
     console.assert(outerId in all, "getTabId not found", outerId);
     var win = all[outerId];
-    while (WinMap.isFrameId(win.parentOuter)) {
+    while (win.parentOuter !== WindowUtils.WINDOW_ID_NONE) {
       outerId = win.parentOuter;
       win = all[outerId];
     }
@@ -558,7 +548,7 @@ var DebugWinMap = {
 
     for (var id in WinMap._outer) {
       intId = parseInt(id, 10);
-      if (WinMap.isTabId(WinMap.getOuterEntry(intId).parentOuter)) {
+      if (WinMap.getOuterEntry(intId).parentOuter === WindowUtils.WINDOW_ID_NONE) {
         this._debugOuter(intId, output, "", usedOuters, usedInners);
       }
     }
@@ -607,7 +597,7 @@ var DebugWinMap = {
 
       s += " " + intOuterId + "[" + obj.innerId + "] ";
 
-      if (WinMap.isTabId(obj.parentId) === false) { // TODO obj.isTop === false
+      if (obj.isTop === false) {
         if ((obj.parentId in WinMap._inner) === false) {
           s += "<parent " + obj.parentId + " not found!>";
         }

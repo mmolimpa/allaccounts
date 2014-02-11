@@ -104,7 +104,7 @@ var UserState = {
 
 
   _setTabDefault: function(tabData, key, tldDoc, userId) {
-    console.assert(WinMap.isTabId(tabData.parentOuter), "tabData is not a top outer frame", tabData);
+    console.assert(tabData.parentOuter === WindowUtils.WINDOW_ID_NONE, "tabData is not a top outer frame", tabData);
     var replace = true;
     if ("tabLogins" in tabData) {
       if (key in tabData.tabLogins) {
@@ -244,7 +244,7 @@ var UserChange = {
   //       n: do nothing
   //       y: add NewAccount
   add: function(docUser, loginTabId) {
-    console.assert(WinMap.isTabId(WinMap.getOuterEntry(loginTabId).parentOuter), "not a top outer id");
+    console.assert(WinMap.getOuterEntry(loginTabId).parentOuter === WindowUtils.WINDOW_ID_NONE, "not a top outer id");
     var newAccount = docUser.user.toNewAccount();
 
     for (var id in WinMap._inner) {
@@ -340,7 +340,7 @@ var UserChange = {
 
 
       // change defaults
-      if (WinMap.isTabId(docData.parentId) === false) {
+      if (docData.isTop === false) {
         continue;
       }
 
@@ -357,7 +357,7 @@ var UserChange = {
       }
 
       var tabData = WinMap.getOuterEntry(docData.outerId);
-      console.assert(WinMap.isTabId(tabData.parentOuter), "docData.outerId is not a tabId", tabData);
+      console.assert(tabData.parentOuter === WindowUtils.WINDOW_ID_NONE, "docData.outerId is not a tabId", tabData);
       if (isTldEmpty) {
         this._removeTldFromTabDefaults(tldDoc, tabData); // tldDoc is now anon
       } else {
