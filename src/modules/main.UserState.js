@@ -9,14 +9,12 @@ var UserState = {
 
 
   getTabDefaultFirstPartyUser: function(tld, tabId) {
-    var tabData = WinMap.getOuterEntry(tabId);
-    return this._getTabDefault(tabData, "firstParty", tld);
+    return this._getTabDefault(tabId, "firstParty", tld);
   },
 
 
-  getTabDefaultThirdPartyUser: function(tld, topInnerId) {
+  getTabDefaultThirdPartyUser: function(tld, topData) {
     // tld already requested by the top document?
-    var topData = WinMap.getInnerWindowFromId(topInnerId);
     if ("thirdPartyUsers" in topData) {
       if (tld in topData.thirdPartyUsers) {
         return topData.thirdPartyUsers[tld]; // can be null (anon tld)
@@ -25,8 +23,7 @@ var UserState = {
 
     // tld already requested by this tab?
     // can be different default from the one used by topInnerId (due to bfcache)
-    var tabData = WinMap.getOuterEntry(topData.outerId);
-    var userId = this._getTabDefault(tabData, "thirdParty", tld);
+    var userId = this._getTabDefault(topData.outerId, "thirdParty", tld);
     if (userId !== null) {
       return userId;
     }
@@ -36,11 +33,15 @@ var UserState = {
       return this._thirdPartyGlobalDefault[tld];
     }
 
-    return null;
+    var encTld = StringEncoding.encode(tld);
+    return LoginDB.isLoggedIn(encTld)
+         ? new UserId(UserUtils.NewAccount, encTld)
+         : null;
   },
 
 
-  _getTabDefault: function(tabData, key, tld) {
+  _getTabDefault: function(tabId, key, tld) {
+    var tabData = WinMap.getOuterEntry(tabId);
     if ("tabLogins" in tabData) {
       if (key in tabData.tabLogins) {
         if (tld in tabData.tabLogins[key]) {

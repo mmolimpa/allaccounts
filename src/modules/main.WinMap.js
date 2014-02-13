@@ -439,7 +439,7 @@ var WinMap = { // stores all current outer/inner windows
         // uriDoc ==> first-party
         userId = UserState.getTabDefaultFirstPartyUser(tld, topData.outerId);
       } else {
-        userId = UserState.getTabDefaultThirdPartyUser(tld, topInnerId);
+        userId = UserState.getTabDefaultThirdPartyUser(tld, topData);
       }
     }
 
