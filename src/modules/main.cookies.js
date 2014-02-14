@@ -38,8 +38,7 @@ var Cookies = {
   },
 
   setCookie: function(docUser, originalUri, originalCookie, fromJs) {
-    var is3rdParty = !docUser.is1stParty(getTldFromHost(originalUri.host)); // TODO
-    var val = convertCookieDomain(originalCookie, docUser, is3rdParty);
+    var val = convertCookieDomain(originalUri.host, originalCookie, docUser);
     var uri = docUser.wrapUri(originalUri);
 
     if (this._prefListener.behavior === 0) {
@@ -100,19 +99,24 @@ var Cookies = {
 };
 
 
-function convertCookieDomain(cookieHeader, docUser, is3rdParty) {
+function convertCookieDomain(host, cookieHeader, docUser) {
   var objCookies = new SetCookieParser(cookieHeader);
   var len = objCookies.length;
   var newCookies = new Array(len);
 
   for (var idx = 0; idx < len; idx++) {
     var myCookie = objCookies.getCookieByIndex(idx);
-    if (is3rdParty) {
-      myCookie.defineMeta("expires", "");
-    }
     var realDomain = myCookie.getStringProperty("domain");
     if (realDomain.length > 0) {
       myCookie.defineMeta("domain", docUser.wrapHost(realDomain));
+    } else {
+      realDomain = host;
+    }
+
+    if (myCookie.getStringProperty("expires").length > 0) {
+      if (docUser.is1stParty(getTldFromHost(realDomain)) === false) {
+        myCookie.defineMeta("expires", "");
+      }
     }
     newCookies[idx] = myCookie.toHeaderLine();
   }
