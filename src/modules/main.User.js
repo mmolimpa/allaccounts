@@ -70,20 +70,24 @@ UserId.prototype = {
 
 
 
-function DocumentUser(user, plainDocTld, topInnerId) {
+function DocumentUser(user, plainDocTld, topInnerId, tabId) {
   console.assert(typeof user        === "object", "invalid user =", user);
   console.assert(typeof plainDocTld === "string", "invalid plainDocTld =", plainDocTld);
   console.assert(typeof topInnerId  === "number", "invalid topInnerId =", topInnerId);
+  console.assert(typeof tabId       === "number", "invalid tabId =", tabId);
   console.assert(getTldFromHost(plainDocTld) === plainDocTld, "plainDocTld is not a TLD", plainDocTld);
 
   this._user = user; // may be null (anon doc)
-  this._topInnerId = topInnerId;
+  this._topInnerId = topInnerId; // WINDOW_ID_NONE is expected (request/response channel of new top-level window)
+  this._tabId = tabId;
   this._ownerDocTld = plainDocTld;
   this._ownerEncodedDocTld = StringEncoding.encode(plainDocTld);
 
 
+  console.assert(tabId !== WindowUtils.WINDOW_ID_NONE, "tabId should be a valid tab");
+  console.assert(WinMap.getOuterEntry(tabId).parentOuter === WindowUtils.WINDOW_ID_NONE, "tabId invalid", tabId);
+
   if (topInnerId === WindowUtils.WINDOW_ID_NONE) {
-    // top request: topInnerId is undefined (it won't be used anyway)
     this._topDocTld = plainDocTld;
     this._1stPartyTldEncoded = StringEncoding.encode(plainDocTld);
     return;
@@ -100,7 +104,8 @@ function DocumentUser(user, plainDocTld, topInnerId) {
 
 DocumentUser.prototype = {
   _user: null,
-  _topInnerId: 0,
+  _topInnerId: WindowUtils.WINDOW_ID_NONE, // needed for WinMap.findUser
+  _tabId:      WindowUtils.WINDOW_ID_NONE, // needed for WinMap.findUser
   _topDocTld: null, // _1stPartyTldPlain
   _1stPartyTldEncoded: null,
   _ownerDocTld: null,
@@ -120,12 +125,6 @@ DocumentUser.prototype = {
       "x-jar-host": this.wrapHost(this._ownerDocTld),
       "x-user": this.user ? (this.user.plainName + " " + this.user.plainTld) : "null"
     };
-  },
-
-
-  get topDocId() {
-    console.assert(this._topInnerId !== WindowUtils.WINDOW_ID_NONE, "_topInnerId is not valid");
-    return this._topInnerId;
   },
 
 
@@ -157,7 +156,7 @@ DocumentUser.prototype = {
 
     // different host: signed in or anon?
     var hostUri = Services.io.newURI("http://" + hostTld, null, null);
-    var hostDocUser = WinMap.findUser(hostUri, this.topDocId);
+    var hostDocUser = WinMap.findUser(hostUri, this._topInnerId, this._tabId);
     return hostDocUser === null ? null : hostDocUser.user;
   },
 
@@ -170,6 +169,8 @@ DocumentUser.prototype = {
 
 
   wrapHost: function(host) {
+    // edge case: top-level response => convertCookieDomain needs to wrap
+    // a 3rd-party host defined in "Set-Cookie:x=1;domain=random-host.com"
     console.assert(typeof host === "string", "host should be a string", host);
     var hostTld = getTldFromHost(host);
     var hostUsr = this.findHostUser(hostTld);

@@ -25,7 +25,8 @@ var SubmitObserver = {
       return;
     }
 
-    if (isSupportedScheme(win.location.protocol) === false) {
+    var innerWin = WinMap.getInnerWindowFromObj(win);
+    if (isSupportedScheme(innerWin.originalUri.scheme) === false) {
       return;
     }
 
@@ -48,35 +49,35 @@ var SubmitObserver = {
     var username = findUserName(form);
     if (username === null) {
       console.log("SubmitObserver: NOP, username not found, confirm pw form?");
-      WinMap.loginSubmitted(win, "pw", null); // just add to outer history
+      WinMap.loginSubmitted(innerWin, "pw", null); // just add to outer history
       return; // TODO username = "random" or error message (icon);
     }
 
-    var tldDoc = getTldFromHost(win.location.hostname);
-    if (skipLogin(tldDoc)) {
-      WinMap.loginSubmitted(win, "submit-skip", null);
+    if (skipLogin(innerWin.eTld)) {
+      WinMap.loginSubmitted(innerWin, "submit-skip", null);
       return;
     }
 
-    var userId = new UserId(StringEncoding.encode(username), StringEncoding.encode(tldDoc));
-    var topInnerId = getDOMUtils(win.top).currentInnerWindowID;
-    var currentDocUser = WinMap.findUser(Services.io.newURI(win.location.href, null, null), topInnerId);
+    var topWin = innerWin.topWindow;
+    var currentDocUser = WinMap.findUser(innerWin.originalUri, topWin.innerId, topWin.outerId);
 
-    var docUser = new DocumentUser(userId, tldDoc, topInnerId);
-    WinMap.loginSubmitted(win, "login", docUser);
+    var userId = new UserId(StringEncoding.encode(username),
+                            StringEncoding.encode(innerWin.eTld));
+    var docUser = new DocumentUser(userId, innerWin.eTld, topWin.innerId, topWin.outerId);
+    WinMap.loginSubmitted(innerWin, "login", docUser);
 
     if (currentDocUser === null) {
       // TODO apply sandbox right now (all iframes)
       // TODO clear 3rd party?
       // Two new users: NewAccount & userId
-      var newUser = new DocumentUser(docUser.user.toNewAccount(), tldDoc, topInnerId);
-      copyData_fromDefault(tldDoc, docUser); // copy current cookies to new user
+      var newUser = new DocumentUser(docUser.user.toNewAccount(), innerWin.eTld, topWin.innerId, topWin.outerId);
+      copyData_fromDefault(innerWin.eTld, docUser); // copy current cookies to new user
 
       // currently useless, "new account" command will remove all cookies
       // BUG first login? default cookies need to be copied (other tabs will be moved to NewAccount, they could be using default cookies)
-      //copyData_fromDefault(tldDoc, newUser); // copy current cookies to NewAccount
+      //copyData_fromDefault(innerWin.eTld, newUser); // copy current cookies to NewAccount
     } else {
-      copyDataToAnotherUser(tldDoc, docUser, currentDocUser);
+      copyDataToAnotherUser(innerWin.eTld, docUser, currentDocUser);
     }
     var tab = UIUtils.getLinkedTabFromBrowser(browser);
     tab.setAttribute("${BASE_DOM_ID}-logging-in", "true"); // activate transition

@@ -91,7 +91,7 @@ var CrossTldLogin = {
       */
     }
 
-    var newDocUser = new DocumentUser(docUser.user, reqTld, topInnerId);// BUG is topInnerId invalid?
+    var newDocUser = new DocumentUser(docUser.user, reqTld, topInnerId, tabId);// BUG is topInnerId invalid?
     console.log("_crossTldLogin ok", docUser, newDocUser);
 
     var obj = {

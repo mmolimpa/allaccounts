@@ -26,8 +26,9 @@ var NewDocUser = {
     LoginCopy.fromOpener("domcreated", outerData, msgData.openerInnerId, msgData.outer);
 
     var innerObj = WinMap.addInner(msgData);
+    var topWin = innerObj.topWindow;
 
-    var docUser = WinMap.findUser(innerObj.originalUri, innerObj.topId); // TODO reuse it from req/resp
+    var docUser = WinMap.findUser(innerObj.originalUri, topWin.innerId, topWin.outerId); // TODO reuse it from req/resp
     if (docUser !== null) {
       // logged in tld
       innerObj.docUserObj = docUser; // used by assets/iframes
@@ -60,18 +61,12 @@ var NewDocUser = {
 
     LoginCopy.fromOpener("request", outerData, channelWin.openerId, channelWin.outerId);
 
-    var topInnerId;
-    var docUser;
-    if (channelWin.isTop) {
-      // topInnerId is not valid, it doesn't exist (yet)
-      // requestURI is the new top document (or a download/redir, it is undefined)
-      topInnerId = WindowUtils.WINDOW_ID_NONE;
-      docUser = WinMap.findUser(requestURI, topInnerId, channelWin.outerId);
-    } else {
-      topInnerId = channelWin.topId;
-      docUser = WinMap.findUser(requestURI, topInnerId);
-    }
-
+    // requestURI might define a new top-level browsing context, so
+    // channelWin.topWindow.innerId is invalid, as it refers to the current top window
+    // (which may be replaced). requestURI can be a download/redir, we don't know yet.
+    var topInnerId = channelWin.isTop ? WindowUtils.WINDOW_ID_NONE
+                                      : channelWin.topWindow.innerId;
+    var docUser = WinMap.findUser(requestURI, topInnerId, channelWin.topWindow.outerId);
     if (docUser === null) {
       // anon request: inherit it from a parent
       docUser = WinMap.getNextSavedUser(channelWin.parentId);
@@ -298,6 +293,7 @@ var WinMap = { // stores all current outer/inner windows
 
   getOuterEntry: function(id) {
     console.assert(typeof id === "number", "getOuterEntry invalid param", id);
+    console.assert(id !== WindowUtils.WINDOW_ID_NONE, "outer id - invalid value", id);
     if (id in this._outer) {
       return this._outer[id];
     }
@@ -358,18 +354,17 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  loginSubmitted: function(win, data, docUser) {
+  loginSubmitted: function(innerWin, data, docUser) {
     var entry = {
       __proto__: null,
       type:      "pw-submit",
       submitted: data,
-      tld: getTldFromHost(win.location.hostname)
+      tld: innerWin.eTld
     };
 
-    var innerWin = WinMap.getInnerWindowFromObj(win);
     WinMap.addToOuterHistory(entry, innerWin.outerId);
     if (docUser !== null) {
-      UserChange.add(docUser, innerWin.topWindow.outerId);
+      UserChange.add(docUser, innerWin.topWindow);
     }
   },
 
@@ -431,7 +426,6 @@ var WinMap = { // stores all current outer/inner windows
     var userId;
     if (topInnerId === WindowUtils.WINDOW_ID_NONE) {
       // assume uriDoc as a top document
-      console.assert(typeof tabId !== "undefined", "topInnerId invalid; tabId not defined");
       userId = UserState.getTabDefaultFirstPartyUser(tld, tabId);
     } else {
       var topData = WinMap.getInnerWindowFromId(topInnerId);
@@ -449,7 +443,7 @@ var WinMap = { // stores all current outer/inner windows
     }
 
     return userId === null ? null
-                           : new DocumentUser(userId, tld, topInnerId);
+                           : new DocumentUser(userId, tld, topInnerId, tabId);
   },
 
 
@@ -479,7 +473,8 @@ var WinMap = { // stores all current outer/inner windows
     // owner document is anon
 
     // resUri could be a logged in tld (different from anonymous innerId)
-    var assetUser = this.findUser(resUri, innerWin.topId);
+    var topWin = innerWin.topWindow;
+    var assetUser = this.findUser(resUri, topWin.innerId, topWin.outerId);
     return assetUser === null ? null : this.getAsAnonUser(innerWin, resUri);
   },
 
@@ -491,7 +486,8 @@ var WinMap = { // stores all current outer/inner windows
       // "about:"
       tld = getTldForUnsupportedScheme(innerWin.originalUri);
     }
-    return new DocumentUser(null, tld, innerWin.topId);
+    var topWin = innerWin.topWindow;
+    return new DocumentUser(null, tld, topWin.innerId, topWin.outerId);
   },
 
 
@@ -567,9 +563,11 @@ var DebugWinMap = {
       }
     }
 
+    output.push("--------------------");
     output.push("_waitingRemoval");
     output.push(JSON.stringify(WinMap._waitingRemoval, null, 2));
 
+    output.push("--------------------");
     output.push("_childrenCount");
     output.push(JSON.stringify(WinMap._childrenCount, null, 2));
 

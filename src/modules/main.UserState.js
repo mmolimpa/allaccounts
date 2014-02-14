@@ -244,7 +244,8 @@ var UserChange = {
   //     tld+doc is anon (is docUser.user the first user for tld)?
   //       n: do nothing
   //       y: add NewAccount
-  add: function(docUser, loginTabId) {
+  add: function(docUser, topWindow) {
+    var loginTabId = topWindow.outerId;
     console.assert(WinMap.getOuterEntry(loginTabId).parentOuter === WindowUtils.WINDOW_ID_NONE, "not a top outer id");
     var newAccount = docUser.user.toNewAccount();
 
@@ -260,7 +261,7 @@ var UserChange = {
       var topInnerId = docData.topWindow.innerId;
 
       // same tab, doc from visible/login tab
-      if (topInnerId === docUser.topDocId) {
+      if (topInnerId === topWindow.innerId) {
         if ("thirdPartyUsers" in docData) { // login could be a 3rd-party iframe
           if (docUser.ownerTld in docData.thirdPartyUsers) {
             docData.thirdPartyUsers[docUser.ownerTld] = docUser.user;
@@ -286,7 +287,7 @@ var UserChange = {
         }
 
         if (("docUserObj" in docData) === false) {
-          docData.docUserObj = new DocumentUser(newAccount, docUser.ownerTld, topInnerId);
+          docData.docUserObj = new DocumentUser(newAccount, docUser.ownerTld, topInnerId, tabId);
         }
 
 
@@ -302,7 +303,7 @@ var UserChange = {
         }
 
         if (("docUserObj" in docData) === false) {
-          docData.docUserObj = new DocumentUser(newAccount, docUser.ownerTld, topInnerId);
+          docData.docUserObj = new DocumentUser(newAccount, docUser.ownerTld, topInnerId, tabId);
           if (docData.isFirstParty) {
             UserState.setTabDefaultFirstParty(docUser.ownerTld, tabId, newAccount);
           } else {
@@ -333,7 +334,8 @@ var UserChange = {
           } else {
             // replace delUserId by NewAccount
             if (delUserId.equals(docData.docUserObj.user)) {
-              docData.docUserObj = new DocumentUser(newUser, tldDoc, docData.topId);
+              var topWin = docData.topWindow;
+              docData.docUserObj = new DocumentUser(newUser, tldDoc, topWin.innerId, topWin.outerId);
             }
           }
         }
