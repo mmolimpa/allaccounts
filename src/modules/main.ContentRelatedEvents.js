@@ -278,7 +278,7 @@ var RemoteBrowserMethod = {
     var srcOrigin = srcWin.location.origin;
     var evt = null;
 
-    for (var innerWin of WinMap.getInnerWindowIterator()) {
+    for (var innerWin of WinMap.getContentInnerWindowIterator()) {
       if (innerWin.origin !== srcOrigin) {
         continue;
       }

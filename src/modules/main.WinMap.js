@@ -316,8 +316,9 @@ var WinMap = { // stores all current outer/inner windows
   getInnerWindowFromId: function(id) {
     console.assert(typeof id === "number", "getInnerWindowFromId invalid type", id);
     console.assert(id !== WindowUtils.WINDOW_ID_NONE, "inner id - invalid value", id);
+    // ignoring _waitingRemoval
     if (id in this._inner) {
-      return id in this._waitingRemoval ? null : this._inner[id];
+      return this._inner[id];
     }
     this._update();
     //console.assert(id in this._inner, "getInnerWindowFromId - innerId not found", id);
@@ -356,8 +357,11 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  getInnerWindowIterator: function*() {
+  getContentInnerWindowIterator: function*() {
     for (var id in this._inner) {
+      if (id in this._waitingRemoval) {
+        continue;
+      }
       yield this._inner[id];
     }
     return null;
