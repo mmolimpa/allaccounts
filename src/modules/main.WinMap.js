@@ -37,7 +37,17 @@ var NewDocUser = {
       docUser = WinMap.getNextSavedUser(parentInnerId);
     }
 
-    return docUser !== null;
+    if (docUser !== null) {
+      innerObj.customizedReason = "docUser";
+      return true;
+    }
+
+    if (innerObj.isFirstParty) {
+      return false;
+    }
+
+    innerObj.customizedReason = "3rd-party";
+    return WinMap.getAsAnonUser(innerObj);
   },
 
 
@@ -422,6 +432,9 @@ var WinMap = { // stores all current outer/inner windows
       return null;
     }
 
+    // TODO Could we save 1st-party user to topData (like
+    // topData.thirdPartyUsers) and avoid completely the use of docUser?
+
     // check if this top document (or its elements) has previous requests to tld
     var userId;
     if (topInnerId === WindowUtils.WINDOW_ID_NONE) {
@@ -475,12 +488,12 @@ var WinMap = { // stores all current outer/inner windows
     // resUri could be a logged in tld (different from anonymous innerId)
     var topWin = innerWin.topWindow;
     var assetUser = this.findUser(resUri, topWin.innerId, topWin.outerId);
-    return assetUser === null ? null : this.getAsAnonUser(innerWin, resUri);
+    return assetUser === null ? null : this.getAsAnonUser(innerWin);
   },
 
 
-  getAsAnonUser: function(innerWin, uri) { // TODO remove uri
-    console.assert(("docUserObj" in innerWin) === false, "innerWin is not anon", uri, innerWin);
+  getAsAnonUser: function(innerWin) {
+    console.assert(("docUserObj" in innerWin) === false, "innerWin is not anon", innerWin);
     var tld = innerWin.eTld;
     if (tld === null) {
       // "about:"

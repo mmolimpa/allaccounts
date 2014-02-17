@@ -104,7 +104,8 @@ var ContentRelatedEvents = {
       }
 
       var msgData = message.json;
-      return RemoteBrowserMethod[msgData.from](msgData, browser);
+      var innerWin = WinMap.getInnerWindowFromId(msgData.inner);
+      return RemoteBrowserMethod[msgData.from](innerWin, msgData, browser);
 
     } catch (ex) {
       console.error(ex);
@@ -174,20 +175,22 @@ var ContentRelatedEvents = {
 
 var RemoteBrowserMethod = {
 
-  cookie: function(msgData) {
-    var docUser = WinMap.getSavedUser(msgData.inner);
-    console.assert(docUser !== null, "docUser should be valid");
+  cookie: function(innerWin, msgData) {
+    var docUser = WinMap.getSavedUser(innerWin.innerId);
+    if (docUser === null) {
+      console.assert(innerWin.isFirstParty === false, "anon 1st-party windows are not customized");
+      docUser = WinMap.getAsAnonUser(innerWin);
+    }
 
-    var uriWin = WinMap.getInnerWindowFromId(msgData.inner).originalUri;
     switch (msgData.cmd) {
       case "set":
-        Cookies.setCookie(docUser, uriWin, msgData.value, true);
+        Cookies.setCookie(docUser, innerWin.originalUri, msgData.value, true);
         return null;
 
       case "get":
         var val = "foo@documentCookie";
         try {
-          var cookie = Cookies.getCookie(true, docUser.wrapUri(uriWin));
+          var cookie = Cookies.getCookie(true, docUser.wrapUri(innerWin.originalUri));
           val = cookie === null ? "" : cookie;
         } catch (ex) {
           console.trace(ex);
@@ -200,11 +203,13 @@ var RemoteBrowserMethod = {
   },
 
 
-  localStorage: function(msgData) {
-    var docUser = WinMap.getSavedUser(msgData.inner);
-    console.assert(docUser !== null, "docUser should be valid");
+  localStorage: function(innerWin, msgData) {
+    var docUser = WinMap.getSavedUser(innerWin.innerId);
+    if (docUser === null) {
+      console.assert(innerWin.isFirstParty === false, "anon 1st-party windows are not customized");
+      docUser = WinMap.getAsAnonUser(innerWin);
+    }
 
-    var innerWin = WinMap.getInnerWindowFromId(msgData.inner);
     var principal = Services.scriptSecurityManager
                    .getNoAppCodebasePrincipal(docUser.wrapUri(innerWin.originalUri));
     var storage; // nsIDOMStorage
@@ -308,11 +313,11 @@ var RemoteBrowserMethod = {
   },
 
 
-  "new-doc": function(msgData, browser) {
+  "new-doc": function(innerWin, msgData, browser) {
     var innerWinParent = null;
     var isTop = true;
-    if (msgData.parentInner !== WindowUtils.WINDOW_ID_NONE) {
-      innerWinParent = WinMap.getInnerWindowFromId(msgData.parentInner);
+    if (innerWin.parentId !== WindowUtils.WINDOW_ID_NONE) {
+      innerWinParent = WinMap.getInnerWindowFromId(innerWin.parentId);
       isTop = innerWinParent.isTop;
     }
     var customize = NewDocUser.addNewDocument(msgData, innerWinParent);
@@ -327,9 +332,9 @@ var RemoteBrowserMethod = {
   },
 
 
-  "error": function(msgData, browser) {
+  "error": function(innerWin, msgData, browser) {
     //console.assert(message.sync === false, "use sendAsyncMessage!");
-    enableErrorMsg(browser, msgData.inner, msgData.cmd, msgData.err);
+    enableErrorMsg(browser, innerWin.innerId, msgData.cmd, msgData.err);
     return null;
   }
 

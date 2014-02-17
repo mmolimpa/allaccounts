@@ -73,17 +73,7 @@ var NetworkObserver = {
 
       // log to topData.thirdPartyUsers
       UserState.addRequest(uri, myChannel.linkedWindow, isWin, null);
-      if (LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(uri.host)))) {
-        var win = myChannel.linkedWindow;
-        console.log("REQ ERR - login found but not used!", isWin, uri, win.originalUri, win.innerId);
-      }
-
-      if (myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN) {
-        return null;
-      }
-
-      var docUser3 = WinMap.getAsAnonUser(myChannel.linkedWindow, uri);
-      return docUser3.is1stParty(docUser3.ownerTld) ? null : docUser3;
+      return NetworkObserver._getAnonUser(myChannel);
     }
   },
 
@@ -142,20 +132,23 @@ var NetworkObserver = {
       if (docUser !== null) {
         return docUser;
       }
-
-      // anon response
-
-      if (LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(uri.host)))) {
-        var win = myChannel.linkedWindow;
-        console.log("RESPONSE ERR - login found but not used!", uri, win.originalUri, win.innerId);
-      }
-
-      if (myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN) {
-        return null;
-      }
-
-      var docUser3 = WinMap.getAsAnonUser(myChannel.linkedWindow, uri);
-      return docUser3.is1stParty(docUser3.ownerTld) ? null : docUser3;
+      return NetworkObserver._getAnonUser(myChannel);
     }
+  },
+
+
+  _getAnonUser: function(myChannel) {
+    var uri = myChannel.underlyingChannel.URI;
+    if (LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(uri.host)))) {
+      console.log("channel err - login found but not used!", uri,
+                  myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN,
+                  myChannel.linkedWindow.originalUri,
+                  myChannel.linkedWindow.innerId);
+    }
+
+    if (myChannel.isFirstParty || myChannel.isTopLevelBrowsingContext) {
+      return null;
+    }
+    return WinMap.getAsAnonUser(myChannel.linkedWindow);
   }
 };

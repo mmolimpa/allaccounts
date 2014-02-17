@@ -87,13 +87,29 @@ ChannelProperties.prototype = {
   },
 
 
+  get underlyingChannel() {
+    return this._channel.get();
+  },
+
+
   get channelType() {
     return this._type;
   },
 
 
-  get underlyingChannel() {
-    return this._channel.get();
+  get isTopLevelBrowsingContext() {
+    return (this.channelType === this.CHANNEL_CONTENT_WIN) &&
+            this.linkedWindow.isTop;
+  },
+
+
+  get isFirstParty() {
+    if (this.isTopLevelBrowsingContext) {
+      // linkedWindow.originalUri must be ignored
+      return true;
+    }
+    var tld = getTldFromHost(this.underlyingChannel.URI.host);
+    return this.linkedWindow.topWindow.eTld === tld;
   },
 
 
