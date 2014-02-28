@@ -24,12 +24,26 @@ var NetworkObserver = {
     observe: function HttpListeners_request(subject, topic, data) {
       var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
       var myChannel = new ChannelProperties(httpChannel);
-      if (myChannel.linkedWindowId === WindowUtils.WINDOW_ID_NONE) {
+      if (myChannel.linkedWindow === null) {
         var cookies = myChannel.headersFromRequest()["cookie"];
         if (cookies !== null) {
           //console.log("request  - no window + Cookie", httpChannel.URI, cookies);
         }
       }
+
+
+      if (myChannel.channelType !== myChannel.CHANNEL_CONTENT_WIN) {
+        var innerWin = myChannel.linkedWindow;
+        if (innerWin && (innerWin.documentElementInserted === false) && innerWin.isInsideTab) {
+          var win = Services.wm.getCurrentInnerWindowWithId(innerWin.innerId);
+          if (win.location.href === "about:blank") {
+            console.log("request resource about:blank", win, httpChannel.URI, innerWin);
+            return;
+          }
+        }
+      }
+
+
 
       var docUser = NetworkObserver._request._getUser(myChannel, httpChannel.URI);
       if (docUser === null) {
@@ -45,7 +59,6 @@ var NetworkObserver = {
 
     _getUser: function(myChannel, uri) {
       var docUser;
-      var isWin = false;
 
       switch (myChannel.channelType) {
         case myChannel.CHANNEL_CONTENT_ASSET:
@@ -53,11 +66,10 @@ var NetworkObserver = {
           break;
         case myChannel.CHANNEL_CONTENT_WIN:
           docUser = NewDocUser.addWindowRequest(myChannel.linkedWindow, uri);
-          isWin = true;
           break;
         case myChannel.CHANNEL_VIEW_SOURCE:
-          console.log("REQUEST - viewsource", uri);
-          return NewDocUser.viewSourceRequest(myChannel.linkedWindowId, uri);
+          console.log("REQUEST - viewsource", uri, myChannel.linkedWindow);
+          return NewDocUser.viewSourceRequest(myChannel.linkedWindow.innerId, uri);
         default: // myChannel.CHANNEL_UNKNOWN
           // request from chrome (favicon, updates, <link rel="next"...)
           // safebrowsing, http://wpad/wpad.dat
@@ -67,12 +79,12 @@ var NetworkObserver = {
 
       if (docUser !== null) {
         // log to topData.thirdPartyUsers
-        UserState.addRequest(uri, myChannel.linkedWindow, isWin, docUser.findHostUser(getTldFromHost(uri.host)));
+        UserState.addRequest(uri, myChannel, docUser.findHostUser(getTldFromHost(uri.host)));
         return docUser;
       }
 
       // log to topData.thirdPartyUsers
-      UserState.addRequest(uri, myChannel.linkedWindow, isWin, null);
+      UserState.addRequest(uri, myChannel, null);
       return NetworkObserver._getAnonUser(myChannel);
     }
   },
@@ -82,7 +94,7 @@ var NetworkObserver = {
     observe: function HttpListeners_response(subject, topic, data) {
       var httpChannel = subject.QueryInterface(Ci.nsIHttpChannel);
       var myChannel = new ChannelProperties(httpChannel);
-      if (myChannel.linkedWindowId === WindowUtils.WINDOW_ID_NONE) {
+      if (myChannel.linkedWindow === null) {
         var setCookies2 = myChannel.headersFromResponse()["set-cookie"];
         if (setCookies2 !== null) {
           console.log("RESPONSE - no window + SetCookie", httpChannel.URI, setCookies2);
@@ -149,6 +161,6 @@ var NetworkObserver = {
     if (myChannel.isFirstParty || myChannel.isTopLevelBrowsingContext) {
       return null;
     }
-    return WinMap.getAsAnonUser(myChannel.linkedWindow);
+    return WinMap.getAsAnonUserUri(myChannel.linkedWindow.topWindow, uri);
   }
 };

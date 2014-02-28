@@ -21,33 +21,42 @@ function ChannelProperties(httpChannel) {
     return;
   }
 
-  try{
-    var win = ctx.associatedWindow;
+  var frame;
+  try {
+    frame = ctx.topFrameElement;
   } catch (ex) {
+    frame = null;
+  }
+
+  var win;
+  try{
+    win = ctx.associatedWindow;
+  } catch (ex) {
+    win = null;
     // safebrowsing
     try {
       httpChannel.requestSucceeded;
-      console.log("RESPONSE - associatedWindow error", httpChannel.URI.prePath, ctx);
+      console.log("RESPONSE - associatedWindow error");
     } catch (ex) {
-      console.log("request  - associatedWindow error", httpChannel.URI.prePath, ctx);
+      console.log("request  - associatedWindow error");
     }
-    return;
   }
 
   if (win === null) {
+    var isResponse = true;
     try {
       httpChannel.requestSucceeded;
-      console.trace("RESPONSE - win=null", httpChannel.URI.prePath, ctx);
     } catch (ex) {
-      console.log("request  - win=null", httpChannel.URI.prePath, ctx);
+      isResponse = false;
     }
+    console.log(isResponse ? "RESPONSE" : "request", "win=null",
+                httpChannel.URI.prePath, ctx.isContent, ctx.isInBrowserElement, frame, ctx);
     return;
   }
 
-  this._innerId = getDOMUtils(win).currentInnerWindowID;
-  this._innerWindow = WinMap.getInnerWindowFromId(this._innerId);
+  this._innerWindow = WinMap.getInnerWindowFromId(getDOMUtils(win).currentInnerWindowID);
 
-  if (this._innerWindow !== null) {
+  if (this._innerWindow.isInsideTab) {
     this._type = this._isWindow(httpChannel) ? this.CHANNEL_CONTENT_WIN
                                              : this.CHANNEL_CONTENT_ASSET;
     return;
@@ -60,7 +69,7 @@ function ChannelProperties(httpChannel) {
   } else {
     try {
       httpChannel.requestSucceeded;
-      console.log("RESPONSE - tab not found", httpChannel.URI, win);
+      console.log("RESPONSE - tab not found", httpChannel.URI, win, this._innerWindow);
     } catch (ex) {
       //console.log("request  - tab not found", httpChannel.URI, win);
     }
@@ -69,7 +78,6 @@ function ChannelProperties(httpChannel) {
 
 
 ChannelProperties.prototype = {
-  _innerId: WindowUtils.WINDOW_ID_NONE,
   _innerWindow: null,
   _channel: null,
 
@@ -110,11 +118,6 @@ ChannelProperties.prototype = {
     }
     var tld = getTldFromHost(this.underlyingChannel.URI.host);
     return this.linkedWindow.topWindow.eTld === tld;
-  },
-
-
-  get linkedWindowId() {
-    return this._innerId;
   },
 
 

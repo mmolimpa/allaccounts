@@ -181,25 +181,28 @@ var UserState = {
   //   User will be displayed in the Multifox menu.
   //   It is just a log, it is not used by findUser
   //
-  addRequest: function(uri, channelWindow, isWinChannel, usr) {
-    if (isWinChannel && channelWindow.isTop) {
-      // new top-level browsing context (or a download/redir)
+  addRequest: function(uri, myChannel, usr) {
+    if (myChannel.isTopLevelBrowsingContext) {
       return;
     }
+
+    // myChannel refers to a resource (*iframes*, images etc)
 
     var tldRequest = getTldFromUri(uri);
     if (tldRequest === null) {
       return; // about: ftp:
     }
 
+    var channelWindow = myChannel.linkedWindow;
     var topData = channelWindow.topWindow;
     var firstPartyRequest = tldRequest === topData.eTld; // about: => topData.eTld=null
     if (firstPartyRequest) {
       return;
     }
 
+    var isWinChannel = myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN;
     console.assert((usr !== null) || (LoginDB.isLoggedIn(StringEncoding.encode(tldRequest)) === false),
-                   "addRequest usr=null loggedin tld", tldRequest, isWinChannel ? "window" : "resource", usr, uri.prePath, channelWindow.origin);
+                   "addRequest usr=null loggedin tld", tldRequest, isWinChannel ? "window" : "resource", usr, uri.prePath);//, channelWindow);
 
     // user=null => null or anon window/asset request using an inherited user
     if ("thirdPartyUsers" in topData) {
@@ -249,9 +252,8 @@ var UserChange = {
     console.assert(WinMap.getOuterEntry(loginTabId).parentOuter === WindowUtils.WINDOW_ID_NONE, "not a top outer id");
     var newAccount = docUser.user.toNewAccount();
 
-    for (var id in WinMap._inner) {
-      var docData = WinMap._inner[id];
 
+    for (var docData of WinMap.getContentInnerWindowIterator()) {
       if (docData.eTld !== docUser.ownerTld) {
         // ignore windows different of docUser.ownerTld
         continue;

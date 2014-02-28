@@ -5,49 +5,86 @@
 
 var NewDocUser = {
 
-  addNewDocument: function(msgData, innerWinParent) {
+  onDocElementInserted: function(msgData) {
+    this.registerWindow(msgData, true);
+
+    var innerWin = WinMap.getInnerWindowFromId(msgData.inner);
+    if (isSupportedScheme(innerWin.originalUri.scheme) === false) {
+      // about: javascript: chrome:
+      return false;
+    }
+
+    var topWin = innerWin.topWindow;
+    var docUser = WinMap.findUser(innerWin.originalUri, topWin.innerId, topWin.outerId);
+    if (docUser !== null) {
+      // logged in tld
+      innerWin.docUserObj = docUser; // used by assets/iframes
+    } else {
+      // anon tld: inherit it from a parent
+      docUser = WinMap.getNextSavedUser(msgData.parentInner);
+    }
+
+    if (docUser !== null) {
+      innerWin.customizeReason = "docUser";
+      return true;
+    }
+
+    if (innerWin.isFirstParty) {
+      return false;
+    }
+
+    innerWin.customizeReason = "3rd-party";
+    return WinMap.getAsAnonUserJs(innerWin.topWindow, innerWin.eTld);
+  },
+
+
+  registerWindow: function(msgData, hasLocation) {
+    // as of Firefox 29, media documents (image/video) fire
+    // "document-element-inserted" before "content-document-global-created"
+    // observer
     var outerEntry = {
       __proto__: null,
-      type: "domcreated",
+      type: hasLocation ? "document-element-inserted" : "document-global-created",
       "inner-id": msgData.inner,
       "original-url": msgData.url
     };
 
+    var innerWinParent = null;
+    if (msgData.parentInner !== WindowUtils.WINDOW_ID_NONE) {
+      innerWinParent = WinMap.getInnerWindowFromId(msgData.parentInner);
+    }
+
     var parentOuterId = WindowUtils.WINDOW_ID_NONE;
-    var parentInnerId = WindowUtils.WINDOW_ID_NONE;
     if (innerWinParent !== null) {
       parentOuterId = innerWinParent.outerId;
-      parentInnerId = innerWinParent.innerId;
-      outerEntry.parent = innerWinParent.originalUri.spec;
+      if (innerWinParent.documentElementInserted) {
+        outerEntry.parent = innerWinParent.originalUri.spec;
+      } else {
+        outerEntry.parent = "<undefined>";
+      }
     }
 
     var outerData = WinMap.addToOuterHistory(outerEntry, msgData.outer, parentOuterId);
 
-    LoginCopy.fromOpener("domcreated", outerData, msgData.openerInnerId, msgData.outer);
+    var innerWin;
+    if (msgData.inner in WinMap._inner) {
+      innerWin = WinMap.getInnerWindowFromId(msgData.inner);
 
-    var innerObj = WinMap.addInner(msgData);
-    var topWin = innerObj.topWindow;
-
-    var docUser = WinMap.findUser(innerObj.originalUri, topWin.innerId, topWin.outerId); // TODO reuse it from req/resp
-    if (docUser !== null) {
-      // logged in tld
-      innerObj.docUserObj = docUser; // used by assets/iframes
     } else {
-      // anon tld: inherit it from a parent
-      docUser = WinMap.getNextSavedUser(parentInnerId);
+      LoginCopy.fromOpener("domcreated", outerData, msgData.openerInnerId, msgData.outer);
+
+      innerWin = new InnerWindow(msgData);
+
+      console.assert((innerWin.parentId in WinMap._waitingRemoval) === false, "addInner: parent doesn't exist anymore", innerWin);
+      WinMap._inner[innerWin.innerId] = innerWin;
+
+      console.assert(WinMap._getChildrenCount(innerWin.innerId) === 0, "new window should not have children", innerWin);
+      if (innerWin.parentId !== WindowUtils.WINDOW_ID_NONE) {
+        WinMap._incChildrenCount(innerWin.parentId);
+      }
     }
 
-    if (docUser !== null) {
-      innerObj.customizedReason = "docUser";
-      return true;
-    }
-
-    if (innerObj.isFirstParty) {
-      return false;
-    }
-
-    innerObj.customizedReason = "3rd-party";
-    return WinMap.getAsAnonUser(innerObj);
+    innerWin.setLocation(msgData.url, msgData.origin);
   },
 
 
@@ -124,7 +161,7 @@ var NewDocUser = {
     // should fetch login from request, because it could be a not logged in iframe
     // (which should inherit login from parent)
     var log = this._findDocRequest(channelWin.innerId, channelWin.outerId);
-    console.assert(log !== null, "reponse without a request");
+    console.assert(log !== null, "response without a request", channelWin.innerId, channel.URI.spec, channelWin, WinMap.getOuterEntry(channelWin.outerId).outerHistory);
     return "reqDocUserObj" in log ? log.reqDocUserObj : null;
   },
 
@@ -186,6 +223,7 @@ var WinMap = { // stores all current outer/inner windows
 
 
   _incChildrenCount: function(id) {
+    console.assert(id in this._inner, "parent id not found", id);
     if (id in this._childrenCount) {
       this._childrenCount[id]++;
     } else {
@@ -213,10 +251,25 @@ var WinMap = { // stores all current outer/inner windows
 
     // Do not remove if there is still an iframe
     if (this._getChildrenCount(id) > 0) {
-      console.assert((id in this._waitingRemoval) === false, "id already in _waitingRemoval", id);
+      /*
+      // for some reason, it may happen
+      console.log((id in this._waitingRemoval) === false,
+                  "removed twice? id already in _waitingRemoval",
+                  id, this._waitingRemoval, this._childrenCount, this._inner[id]);
+      */
       this._waitingRemoval[id] = true;
+
+      this.addToOuterHistory({
+        type:    "removeInner/waitingRemoval",
+        innerId: id
+      }, this._inner[id].outerId);
       return;
     }
+
+    this.addToOuterHistory({
+      type:    "removeInner/done",
+      innerId: id
+    }, this._inner[id].outerId);
 
     // id has no children
     console.assert((id in this._childrenCount) === false, "id should not exist in _childrenCount at this point", this._childrenCount[id]);
@@ -241,6 +294,8 @@ var WinMap = { // stores all current outer/inner windows
     }
   },
 
+
+  /* useless until restaless mode be activated
 
   _addWindow: function(win) { // called recursively by _update for all documents in a tab
     var parentOuterId;
@@ -301,37 +356,6 @@ var WinMap = { // stores all current outer/inner windows
   },
 
 
-  getOuterEntry: function(id) {
-    console.assert(typeof id === "number", "getOuterEntry invalid param", id);
-    console.assert(id !== WindowUtils.WINDOW_ID_NONE, "outer id - invalid value", id);
-    if (id in this._outer) {
-      return this._outer[id];
-    }
-    this._update();
-    console.assert(id in this._outer, "getOuterEntry - outerId not found", id);
-    return this._outer[id];
-  },
-
-
-  getInnerWindowFromId: function(id) {
-    console.assert(typeof id === "number", "getInnerWindowFromId invalid type", id);
-    console.assert(id !== WindowUtils.WINDOW_ID_NONE, "inner id - invalid value", id);
-    // ignoring _waitingRemoval
-    if (id in this._inner) {
-      return this._inner[id];
-    }
-    this._update();
-    //console.assert(id in this._inner, "getInnerWindowFromId - innerId not found", id);
-    //return this._inner[id];
-    return id in this._inner ? this._inner[id] : null;
-  },
-
-
-  getInnerWindowFromObj: function(win) {
-    return WinMap.getInnerWindowFromId(getDOMUtils(win).currentInnerWindowID);
-  },
-
-
   addInner: function(msgData) {
     var innerObj = new InnerWindow(msgData);
     console.assert((innerObj.parentId in this._waitingRemoval) === false, "addInner: parent doesn't exist anymore", innerObj);
@@ -355,14 +379,88 @@ var WinMap = { // stores all current outer/inner windows
     this._inner[innerObj.innerId] = innerObj;
     return innerObj;
   },
+  */
+
+
+  getOuterEntry: function(id) {
+    console.assert(typeof id === "number", "getOuterEntry invalid param", id);
+    console.assert(id !== WindowUtils.WINDOW_ID_NONE, "outer id - invalid value", id);
+    if (id in this._outer) {
+      return this._outer[id];
+    }
+    //this._update();
+    return id in this._outer ? this._outer[id] : null;
+  },
+
+
+  getInnerWindowFromId: function(id) {
+    console.assert(typeof id === "number", "getInnerWindowFromId invalid type", id);
+    console.assert(id !== WindowUtils.WINDOW_ID_NONE, "inner id - invalid value", id);
+    // ignoring _waitingRemoval
+    if (id in this._inner) {
+      return this._inner[id];
+    }
+    //this._update();
+    // resource://gre-resources/hiddenWindow.html
+    console.trace("getInnerWindowFromId - innerId not found", id,
+                  Services.wm.getCurrentInnerWindowWithId(id));
+    return id in this._inner ? this._inner[id] : null;
+  },
+
+
+  getInnerWindowFromObj: function(win) {
+    return WinMap.getInnerWindowFromId(getDOMUtils(win).currentInnerWindowID);
+  },
+
+
+  populateWinData: function(win) {
+    var utils = getDOMUtils(win);
+
+    var msgData = {
+      inner:       utils.currentInnerWindowID,
+      outer:       utils.outerWindowID,
+      url:         win.location.href,
+      origin:      null,
+      topId:         WindowUtils.WINDOW_ID_NONE,
+      parentInner:   WindowUtils.WINDOW_ID_NONE,
+      openerInnerId: WindowUtils.WINDOW_ID_NONE
+    };
+
+    if (win !== win.top) {
+      console.assert(win.opener === null, "is an iframe supposed to have an opener?");
+      console.assert(win.parent !== null, "iframe without a parent element");
+      msgData.parentInner = getDOMUtils(win.parent).currentInnerWindowID;
+      msgData.topId = getDOMUtils(win.top).currentInnerWindowID;
+    } else {
+      msgData.topId = msgData.inner;
+    }
+
+    if (win.opener !== null) {
+      // OBS opener=null for middle clicks. It works for target=_blank links, even for different domains
+      msgData.openerInnerId = getDOMUtils(win.opener).currentInnerWindowID;
+    }
+
+    if (msgData.url.length > 0) { // avoid exception, not necessary for Fx30
+      msgData.origin = win.location.origin;
+    }
+
+    return msgData;
+  },
 
 
   getContentInnerWindowIterator: function*() {
-    for (var id in this._inner) {
+    var windows = this._inner;
+    for (var id in windows) {
       if (id in this._waitingRemoval) {
         continue;
       }
-      yield this._inner[id];
+      var innerWin = windows[id];
+      if (innerWin.documentElementInserted === false) {
+        continue;
+      }
+      if (innerWin.isInsideTab) {
+        yield innerWin;
+      }
     }
     return null;
   },
@@ -395,6 +493,15 @@ var WinMap = { // stores all current outer/inner windows
         parentOuter: parentOuterId, // TODO parentId
         outerHistory: []
       };
+
+
+      if (parentOuterId === WindowUtils.WINDOW_ID_NONE) {
+        var win = Services.wm.getOuterWindowWithId(outerId).top;
+        var browser = UIUtils.getParentBrowser(win);
+        outerData.isInsideTab = browser === null
+                              ? false : UIUtils.isContentBrowser(browser);
+      }
+
       this._outer[outerId] = outerData;
       outerData["x-history-length"] = 1;
     }
@@ -418,7 +525,7 @@ var WinMap = { // stores all current outer/inner windows
     console.assert(outerId !== WindowUtils.WINDOW_ID_NONE, "getTabId invalid param", outerId);
     var all = this._outer;
     if ((outerId in all) === false) {
-      this._update();
+      //this._update();
     }
     console.assert(outerId in all, "getTabId not found", outerId);
     var win = all[outerId];
@@ -492,18 +599,22 @@ var WinMap = { // stores all current outer/inner windows
     // resUri could be a logged in tld (different from anonymous innerId)
     var topWin = innerWin.topWindow;
     var assetUser = this.findUser(resUri, topWin.innerId, topWin.outerId);
-    return assetUser === null ? null : this.getAsAnonUser(innerWin);
+    return assetUser === null ? null : this.getAsAnonUserUri(topWin, resUri);
   },
 
 
-  getAsAnonUser: function(innerWin) {
-    console.assert(("docUserObj" in innerWin) === false, "innerWin is not anon", innerWin);
-    var tld = innerWin.eTld;
+  getAsAnonUserUri: function(topWin, uri) {
+    var tld = getTldFromUri(uri);
     if (tld === null) {
       // "about:"
       tld = getTldForUnsupportedScheme(innerWin.originalUri);
     }
-    var topWin = innerWin.topWindow;
+    return this.getAsAnonUserJs(topWin, tld);
+  },
+
+
+  getAsAnonUserJs: function(topWin, tld) {
+    console.assert(topWin.isTop, "topWin must be a top window");
     return new DocumentUser(null, tld, topWin.innerId, topWin.outerId);
   },
 
@@ -561,8 +672,9 @@ var DebugWinMap = {
 
     for (var id in WinMap._outer) {
       intId = parseInt(id, 10);
-      if (WinMap.getOuterEntry(intId).parentOuter === WindowUtils.WINDOW_ID_NONE) {
-        this._debugOuter(intId, output, "", usedOuters, usedInners);
+      var outerWin = WinMap.getOuterEntry(intId);
+      if (outerWin.parentOuter === WindowUtils.WINDOW_ID_NONE) {
+        this._debugOuter(intId, output, "", usedOuters, usedInners, outerWin);
       }
     }
 
@@ -576,7 +688,8 @@ var DebugWinMap = {
     for (var id in WinMap._inner) {
       intId = parseInt(id, 10);
       if (usedInners.indexOf(intId) === -1) {
-        output.unshift("*** inner not displayed " + intId, "---");
+        output.unshift("*** inner not displayed " + intId + " " +
+                       Services.wm.getCurrentInnerWindowWithId(intId).location, "---");
       }
     }
 
@@ -592,7 +705,7 @@ var DebugWinMap = {
   },
 
 
-  _debugOuter: function(intOuterId, output, padding, usedOuters, usedInners) {
+  _debugOuter: function(intOuterId, output, padding, usedOuters, usedInners, outerWin) {
     var win = Services.wm.getOuterWindowWithId(intOuterId);
 
     // removed outer window?
@@ -611,6 +724,12 @@ var DebugWinMap = {
       var s = padding;
 
       s += " " + intOuterId + "[" + obj.innerId + "] ";
+      if (outerWin.parentOuter === WindowUtils.WINDOW_ID_NONE) {
+        if (outerWin.isInsideTab === false) {
+          s += "<outside tab>";
+        }
+      }
+
 
       if (obj.isTop === false) {
         if ((obj.parentId in WinMap._inner) === false) {
@@ -635,15 +754,16 @@ var DebugWinMap = {
         var docUser = obj.docUserObj;
         s += "{" + docUser.user.plainName + "/" + docUser.user.plainTld + "}  ";
       }
-      s += obj.originalUri.spec.substr(0, 140);
-      if (obj.originalUri.spec.length === 0) {
+      var urlObj = obj.documentElementInserted ? obj.originalUri.spec : "";
+      s += urlObj.substr(0, 140);
+      if (urlObj.length === 0) {
         s += "<url empty>";
       }
       if (currentInner === WindowUtils.WINDOW_ID_NONE) {
         s += " <outer removed>";
       } else {
         if (currentInner === obj.innerId) {
-          if (win.location.href !== obj.originalUri.spec) {
+          if (win.location.href !== urlObj) {
             s += " - actual URL: " + win.location.href.substr(0, 140);
           }
         } else {
@@ -659,8 +779,9 @@ var DebugWinMap = {
     usedOuters.push(intOuterId);
     for (var id in WinMap._outer) {
       var intId = parseInt(id, 10);
-      if (WinMap.getOuterEntry(intId).parentOuter === intOuterId) {
-        this._debugOuter(intId, output, padding + "        ", usedOuters, usedInners);
+      var outerWin = WinMap.getOuterEntry(intId);
+      if (outerWin.parentOuter === intOuterId) {
+        this._debugOuter(intId, output, padding + "        ", usedOuters, usedInners, outerWin);
       }
     }
   }

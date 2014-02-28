@@ -26,12 +26,15 @@ var SubmitObserver = {
     }
 
     var innerWin = WinMap.getInnerWindowFromObj(win);
+    if (innerWin.documentElementInserted === false) {
+      console.trace("earlyformsubmit", form, win, innerWin);
+      return;
+    }
     if (isSupportedScheme(innerWin.originalUri.scheme) === false) {
       return;
     }
 
-    var browser = UIUtils.getParentBrowser(win);
-    if (UIUtils.isContentBrowser(browser) === false) {
+    if (innerWin.isInsideTab === false) {
       return null; // chrome form?
     }
 
@@ -39,6 +42,7 @@ var SubmitObserver = {
       return; // no password provided => not a login form
     }
 
+    var browser = UIUtils.getParentBrowser(win);
     if (UIUtils.isPrivateWindow(win)) {
       // obs: do not call WinMap.loginSubmitted for private windows
       // they should not be registered by WinMap
@@ -69,6 +73,7 @@ var SubmitObserver = {
     if (currentDocUser === null) {
       // TODO apply sandbox right now (all iframes)
       // TODO clear 3rd party?
+      // TODO copy cookies from topData.thirdPartyUsers
       // Two new users: NewAccount & userId
       var newUser = new DocumentUser(docUser.user.toNewAccount(), innerWin.eTld, topWin.innerId, topWin.outerId);
       copyData_fromDefault(innerWin.eTld, docUser); // copy current cookies to new user

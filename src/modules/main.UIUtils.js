@@ -59,8 +59,13 @@ var UIUtils = {
     console.assert(browser !== null, "browser should not be null");
     // edge case: browser (and tab) already removed from DOM
     //            (browser.parentNode === null)
-    var t = browser.getAttribute("type");
-    return (t === "content-primary") || (t === "content-targetable");
+    var tb = browser.ownerDocument.getBindingParent(browser);
+    if (tb !== null) {
+      return tb.localName === "tabbrowser";
+    }
+    // workaround due to about:newtab preloading
+    return browser.ownerDocument.defaultView.location.href ===
+           "data:application/vnd.mozilla.xul+xml;charset=utf-8,<window%20id='win'/>";
   },
 
 

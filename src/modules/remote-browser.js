@@ -13,6 +13,37 @@ Cu.import("resource://gre/modules/Services.jsm");
 #include "console.js"
   console.setAsRemote();
 
+
+function populateWinData(win) {
+  var utils = getDOMUtils(win);
+  var msgData = {
+    inner:       utils.currentInnerWindowID,
+    outer:       utils.outerWindowID,
+    url:         win.location.href,
+    origin:      win.location.origin,
+    topId:         -1, // WindowUtils.WINDOW_ID_NONE
+    parentInner:   -1, // WindowUtils.WINDOW_ID_NONE
+    openerInnerId: -1  // WindowUtils.WINDOW_ID_NONE
+  };
+
+  if (win !== win.top) {
+    console.assert(win.opener === null, "is an iframe supposed to have an opener?");
+    console.assert(win.parent !== null, "iframe without a parent element");
+    msgData.parentInner = getDOMUtils(win.parent).currentInnerWindowID;
+    msgData.topId = getDOMUtils(win.top).currentInnerWindowID;
+  } else {
+    msgData.topId = msgData.inner;
+  }
+
+  if (win.opener !== null) {
+    // OBS opener=null for middle clicks. It works for target=_blank links, even for different domains
+    msgData.openerInnerId = getDOMUtils(win.opener).currentInnerWindowID;
+  }
+
+  return msgData;
+}
+
+
 function onNewDocument(win) {
   var chromeWin = UIUtils.getTopLevelWindow(win);
   if (UIUtils.isMainWindow(chromeWin) === false) {
@@ -24,33 +55,8 @@ function onNewDocument(win) {
     return;
   }
 
-  if (UIUtils.isContentBrowser(browser) === false) {
-    console.log("not a content browser", win);
-    return;
-  }
-
-  var utils = getDOMUtils(win);
-  var msgData = {
-    from:        "new-doc",
-    url:         win.location.href,
-    origin:      win.location.origin,
-    inner:       utils.currentInnerWindowID,
-    outer:       utils.outerWindowID,
-    parentInner:   -1, // WindowUtils.WINDOW_ID_NONE
-    openerInnerId: -1  // WindowUtils.WINDOW_ID_NONE
-  };
-
-
-  if (win !== win.top) {
-    console.assert(win.opener === null, "is an iframe supposed to have an opener?");
-    console.assert(win.parent !== null, "iframe without a parent element");
-    msgData.parentInner = getDOMUtils(win.parent).currentInnerWindowID;
-  }
-
-  if (win.opener !== null) {
-    // OBS opener=null for middle clicks. It works for target=_blank links, even for different domains
-    msgData.openerInnerId = getDOMUtils(win.opener).currentInnerWindowID;
-  }
+  var msgData = populateWinData(win);
+  msgData.from = "new-doc";
 
   if (m_src !== null) {
     // TODO sendSyncMessage=undefined ==> disabled extension or exception in the parent process
@@ -117,7 +123,6 @@ function initDoc(win) {
       inner: getDOMUtils(win).currentInnerWindowID,
       url: win.location.href
     };
-    msgData.topUrl = win !== win.top ? win.top.location.href : "";
     sendAsyncMessageShim("${BASE_DOM_ID}-remote-msg", msgData, UIUtils.getParentBrowser(win));
   }
 }
@@ -223,14 +228,6 @@ var UIUtils = {
   getTabList: function(chromeWin) {
     console.assert(this.isMainWindow(chromeWin), "Not a browser window", chromeWin);
     return chromeWin.gBrowser.tabs; // <tab> NodeList
-  },
-
-
-  isContentBrowser: function(browser) {
-    // edge case: browser (and tab) already removed from DOM
-    //            (browser.parentNode === null)
-    var t = browser.getAttribute("type");
-    return (t === "content-primary") || (t === "content-targetable");
   },
 
 

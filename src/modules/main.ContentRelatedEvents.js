@@ -9,6 +9,8 @@ var ContentRelatedEvents = {
     var obs = Services.obs;
     obs.addObserver(this._onOuterDestroyed, "outer-window-destroyed", false);
     obs.addObserver(this._onInnerDestroyed, "inner-window-destroyed", false);
+    obs.addObserver(this._onDocCreated, "chrome-document-global-created", false); // about:newtab
+    obs.addObserver(this._onDocCreated, "content-document-global-created", false);
     obs.addObserver(this._onDocElementInserted, "document-element-inserted", false);
     obs.addObserver(this._onRemoteMsg, "${BASE_DOM_ID}-remote-msg", false);
   },
@@ -18,6 +20,8 @@ var ContentRelatedEvents = {
     var obs = Services.obs;
     obs.removeObserver(this._onOuterDestroyed, "outer-window-destroyed");
     obs.removeObserver(this._onInnerDestroyed, "inner-window-destroyed");
+    obs.removeObserver(this._onDocCreated, "chrome-document-global-created");
+    obs.removeObserver(this._onDocCreated, "content-document-global-created");
     obs.removeObserver(this._onDocElementInserted, "document-element-inserted");
     obs.removeObserver(this._onRemoteMsg, "${BASE_DOM_ID}-remote-msg");
   },
@@ -77,6 +81,13 @@ var ContentRelatedEvents = {
   },
 
 
+  _onDocCreated: {
+    observe: function(win, topic, data) {
+      NewDocUser.registerWindow(WinMap.populateWinData(win), false); // location unknown
+    }
+  },
+
+
   _onRemoteMsg: {
     observe: function(subject, topic, data) {
       var parentBrowser = subject;
@@ -97,15 +108,14 @@ var ContentRelatedEvents = {
   _onRemoteBrowserMessage: function(message) {
     // this = nsIChromeFrameMessageManager
     try {
-      var browser = message.target;
-      if (UIUtils.isContentBrowser(browser) === false) {
-        console.assert(msgData.from !== "new-doc", "not a content new window");
-        return null; // social-sidebar-browser etc
-      }
-
       var msgData = message.json;
-      var innerWin = WinMap.getInnerWindowFromId(msgData.inner);
-      return RemoteBrowserMethod[msgData.from](innerWin, msgData, browser);
+      var browser = message.target;
+      var innerWin = null;
+      if (msgData.from !== "new-doc") {
+        innerWin = WinMap.getInnerWindowFromId(msgData.inner);
+        console.assert(innerWin.isInsideTab, "command from invalid window", msgData);
+      }
+      return RemoteBrowserMethod[msgData.from](msgData, innerWin, browser);
 
     } catch (ex) {
       console.error(ex);
@@ -142,24 +152,23 @@ var ContentRelatedEvents = {
         var fromCache = evt.persisted;
         if (fromCache) {
           // http top doc from cache: update icon
-          var browser = UIUtils.getParentBrowser(win);
-          if (UIUtils.isContentBrowser(browser)) {
-            var innerWin = WinMap.getInnerWindowFromObj(win);
+          var innerWin = WinMap.getInnerWindowFromObj(win);
+          if (innerWin.isInsideTab) {
             if ("docUserObj" in innerWin) {
               var tabId = innerWin.topWindow.outerId;
               var docUser = innerWin.docUserObj;
               UserState.setTabDefaultFirstParty(docUser.ownerTld, tabId, docUser.user); // BUG [?] a 3rd party iframe may become the default
             }
-            var tab = UIUtils.getLinkedTabFromBrowser(browser);
-            updateUIAsync(tab, isTopWindow(win));
+            var tab = UIUtils.getLinkedTabFromBrowser(UIUtils.getParentBrowser(win));
+            updateUIAsync(tab, innerWin.isTop);
           }
         }
 
       } else { // ftp:, about:, chrome: etc. request/response listener may not be called
-        var browser = UIUtils.getParentBrowser(win);
-        if (UIUtils.isContentBrowser(browser)) {
-          var tab = UIUtils.getLinkedTabFromBrowser(browser);
-          updateUIAsync(tab, isTopWindow(win));
+        var innerWin = WinMap.getInnerWindowFromObj(win);
+        if (innerWin.isInsideTab) {
+          var tab = UIUtils.getLinkedTabFromBrowser(UIUtils.getParentBrowser(win));
+          updateUIAsync(tab, innerWin.isTop);
         }
       }
 
@@ -175,11 +184,11 @@ var ContentRelatedEvents = {
 
 var RemoteBrowserMethod = {
 
-  cookie: function(innerWin, msgData) {
+  cookie: function(msgData, innerWin) {
     var docUser = WinMap.getSavedUser(innerWin.innerId);
     if (docUser === null) {
-      console.assert(innerWin.isFirstParty === false, "anon 1st-party windows are not customized");
-      docUser = WinMap.getAsAnonUser(innerWin);
+      console.assert(innerWin.isFirstParty === false, "anon 1st-party windows are not customized", innerWin);
+      docUser = WinMap.getAsAnonUserJs(innerWin.topWindow, innerWin.eTld);
     }
 
     switch (msgData.cmd) {
@@ -193,7 +202,7 @@ var RemoteBrowserMethod = {
           var cookie = Cookies.getCookie(true, docUser.wrapUri(innerWin.originalUri));
           val = cookie === null ? "" : cookie;
         } catch (ex) {
-          console.trace(ex);
+          console.trace(ex, innerWin);
         }
         return {responseData: val};
 
@@ -203,11 +212,11 @@ var RemoteBrowserMethod = {
   },
 
 
-  localStorage: function(innerWin, msgData) {
+  localStorage: function(msgData, innerWin) {
     var docUser = WinMap.getSavedUser(innerWin.innerId);
     if (docUser === null) {
-      console.assert(innerWin.isFirstParty === false, "anon 1st-party windows are not customized");
-      docUser = WinMap.getAsAnonUser(innerWin);
+      console.assert(innerWin.isFirstParty === false, "anon 1st-party windows are not customized", innerWin);
+      docUser = WinMap.getAsAnonUserJs(innerWin.topWindow, innerWin.eTld);
     }
 
     var principal = Services.scriptSecurityManager
@@ -313,16 +322,13 @@ var RemoteBrowserMethod = {
   },
 
 
-  "new-doc": function(innerWin, msgData, browser) {
-    var innerWinParent = null;
-    var isTop = true;
-    if (innerWin.parentId !== WindowUtils.WINDOW_ID_NONE) {
-      innerWinParent = WinMap.getInnerWindowFromId(innerWin.parentId);
-      isTop = innerWinParent.isTop;
+  "new-doc": function(msgData, innerWinNull, browser) {
+    var customize = NewDocUser.onDocElementInserted(msgData); // may create InnerWindow
+    var innerWin = WinMap.getInnerWindowFromId(msgData.inner);
+    if (innerWin.isInsideTab) {
+      updateUIAsync(UIUtils.getLinkedTabFromBrowser(browser), innerWin.isTop);
     }
-    var customize = NewDocUser.addNewDocument(msgData, innerWinParent);
-    var tab = UIUtils.getLinkedTabFromBrowser(browser);
-    updateUIAsync(tab, isTop);
+
     if (customize) {
       // tell remote browser to apply script to document
       return "initBrowser" in msgData ? DocOverlay.getInitBrowserData() : {};
@@ -332,9 +338,9 @@ var RemoteBrowserMethod = {
   },
 
 
-  "error": function(innerWin, msgData, browser) {
+  "error": function(msgData, innerWinNotUsed, browser) {
     //console.assert(message.sync === false, "use sendAsyncMessage!");
-    enableErrorMsg(browser, innerWin.innerId, msgData.cmd, msgData.err);
+    enableErrorMsg(browser, msgData.inner, msgData.cmd, msgData.err);
     return null;
   }
 

@@ -8,25 +8,34 @@ function InnerWindow(msgData) {
   console.assert(typeof msgData.parentInner === "number", "InnerWindow parent invalid type", msgData.parentInner);
   console.assert(typeof msgData.openerInnerId === "number", "InnerWindow opener invalid type", msgData.openerInnerId);
   console.assert(typeof msgData.outer === "number", "InnerWindow outer invalid type", msgData.outer);
-  console.assert(typeof msgData.origin === "string", "InnerWindow origin invalid type", msgData.origin);
-  console.assert(typeof msgData.url === "string", "InnerWindow url invalid type", msgData.url);
+  console.assert(typeof msgData.topId === "number", "InnerWindow top invalid type", msgData.topId);
 
   console.assert(msgData.inner !== WindowUtils.WINDOW_ID_NONE, "InnerWindow id invalid value", msgData.inner);
   console.assert(msgData.outer !== WindowUtils.WINDOW_ID_NONE, "InnerWindow outer invalid value", msgData.outer);
-  console.assert(msgData.url.length > 0, "empty url");
+  console.assert(msgData.topId !== WindowUtils.WINDOW_ID_NONE, "InnerWindow top invalid value", msgData.topId);
 
-  if (msgData.origin.length === 0) {
-    console.log("origin empty", this);
-  }
+  console.assert((msgData.parentInner === WindowUtils.WINDOW_ID_NONE) ||
+                 (msgData.parentInner !== msgData.inner), "parent=id", msgData);
+  console.assert((msgData.openerInnerId === WindowUtils.WINDOW_ID_NONE) ||
+                 (msgData.openerInnerId !== msgData.inner), "opener=id", msgData);
+  console.assert((msgData.parentInner === WindowUtils.WINDOW_ID_NONE) ||
+                 (msgData.parentInner !== msgData.openerInnerId), "parent=opener", msgData);
+
 
   this._id = msgData.inner;
+  this._topId = msgData.topId;
   this._parent = msgData.parentInner;
   this._opener = msgData.openerInnerId;
   this._outer = msgData.outer;
 
-  this._uri = Services.io.newURI(msgData.url, null, null);
-  this._tld = getTldFromUri(this._uri);
-  this._origin = msgData.origin;
+  var topWin = this.topWindow;
+  if (topWin !== null) {
+    // cache the value
+    this._isInsideTab = WinMap.getOuterEntry(topWin.outerId).isInsideTab;
+  } else {
+    this._isInsideTab = false;
+    console.trace("topWin null", this);
+  }
 
   //this._data = Object.create(null);
   //this._data["${CHROME_NAME}"] = Object.create(null);
@@ -42,6 +51,7 @@ InnerWindow.prototype = {
   _uri:    null,
   _tld:    null,
   _origin: null,
+  _isInsideTab: true,
 
   //_data: null,
 
@@ -51,19 +61,48 @@ InnerWindow.prototype = {
   },
 
 
+  setLocation: function(url, origin) {
+    console.assert(typeof url === "string", "InnerWindow url invalid type", url);
+    if (url.length === 0) {
+      return;
+    }
+
+    this._origin = origin;
+    this._uri = Services.io.newURI(url, null, null);
+    this._tld = getTldFromUri(this._uri);
+  },
+
+
+  get documentElementInserted() {
+    return this._uri !== null; // location has been defined
+  },
+
+
   get eTld() {
-    return this._tld;
+    if (this.documentElementInserted) {
+      return this._tld;
+    }
+    console.trace("eTld - documentElementInserted=false");
+    throw new Error("eTld not defined", this.innerId);
   },
 
 
   get origin() {
-    return this._origin;
+    if (this.documentElementInserted) {
+      return this._origin;
+    }
+    console.trace("origin - documentElementInserted=false");
+    throw new Error("Origin not defined", this.innerId);
   },
 
 
   // url may change due to pushState/fragment; origin never changes
   get originalUri() {
-    return this._uri;
+    if (this.documentElementInserted) {
+      return this._uri;
+    }
+    console.trace("originalUri - documentElementInserted=false");
+    throw new Error("originalUri not defined", this.innerId);
   },
 
 
@@ -87,11 +126,22 @@ InnerWindow.prototype = {
   },
 
 
+  get isInsideTab() {
+    return this._isInsideTab;
+  },
+
+
   // true even if it is inside a 3rd-party window
   get isFirstParty() {
     if (this.isTop) {
       return true;
     }
+
+    console.assert(this.documentElementInserted, "Location not defined", this);
+
+    // TODO what about src="javascript:\"<html><body></body></html>\""?
+    //                      data:text/html;charset=utf-8,<html>Hi</html>
+
     var top = this.topWindow;
     var tld1 = this._tld;
     var tld2 = top.eTld;
@@ -107,32 +157,9 @@ InnerWindow.prototype = {
 
 
   get topWindow() {
-    return WinMap.getInnerWindowFromId(this.topId);
-  },
-
-
-  get topId() {
-    if (this._topId === WindowUtils.WINDOW_ID_NONE) {
-      this._topId = this._getTopInnerId(this._id);
-      console.assert(this._topId !== WindowUtils.WINDOW_ID_NONE, "top id not found?");
-    }
-    return this._topId;
-  },
-
-
-  _getTopInnerId: function(id) {
-    var all = WinMap._inner;
-    if ((id in all) === false) {
-      WinMap._update();
-    }
-    console.assert(id in all, "_getTopInnerId not found", this);
-    var win = all[id];
-    if (!win) console.trace("win undefined");
-    while (win.isTop === false) {
-      id = win.parentId;
-      win = all[id];
-    }
-    return id;
+    return this._topId === this._id
+         ? this
+         : WinMap.getInnerWindowFromId(this._topId);
   },
 
 
@@ -144,21 +171,22 @@ InnerWindow.prototype = {
 
 
   toJSON: function() {
-    var rv = {
-      innerId: this._id,
-      outerId: this._outer,
-      url:     this._uri.spec,
-      origin:  this._origin,
-      eTld:    this._tld
-    };
-    if (this._id !== this._topId) {
-      rv.topId = this._topId;
-    }
-    if (this._parent !== WindowUtils.WINDOW_ID_NONE) {
-      rv.parentId = this._parent;
-    }
-    if (this._opener !== WindowUtils.WINDOW_ID_NONE) {
-      rv.openerId = this._opener;
+    var rv = {};
+    for (var p in this) {
+      if (p === "_uri") {
+        rv[p] = this._uri ? this._uri.spec : "null";
+      } else {
+        switch (p) {
+          case "eTld":
+          case "origin":
+          case "originalUri":
+          case "isFirstParty":
+          case "topWindow":
+            break;
+          default:
+            rv[p] = this[p];
+        }
+      }
     }
     return rv;
   },
