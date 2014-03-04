@@ -88,6 +88,7 @@ var NewDocUser = {
 
 
   addWindowRequest: function(channelWin, requestURI) {
+    // TODO separate logic for channelWin.isTop
     var tldPrev = channelWin.isTop
                 ? CrossTldLogin.getPrevDocTld(channelWin.outerId) // should be called before addToOuterHistory
                 : null;
@@ -118,12 +119,17 @@ var NewDocUser = {
       docUser = WinMap.getNextSavedUser(channelWin.parentId);
     }
 
+    if (channelWin.isTop) {
+      if (docUser === null) {
+        // BUG docUser from a logged in iframe never will be != null
+        docUser = CrossTldLogin.parse(tldPrev, requestURI, channelWin.outerId, topInnerId);
+        if (docUser !== null) {
+          entry["x-tld-login"] = true;
+        }
+      }
 
-    if (channelWin.isTop && (docUser === null)) {
-      // BUG docUser from a logged in iframe never will be != null
-      docUser = CrossTldLogin.parse(tldPrev, requestURI, channelWin.outerId, topInnerId);
       if (docUser !== null) {
-        entry["x-tld-login"] = true;
+        UserState.setTabDefaultFirstParty(docUser.ownerTld, channelWin.outerId, docUser.user);
       }
     }
 
