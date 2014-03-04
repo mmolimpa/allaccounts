@@ -64,17 +64,14 @@ var NewDocUser = {
       }
     }
 
-    var outerData = WinMap.addToOuterHistory(outerEntry, msgData.outer, parentOuterId);
+    WinMap.addToOuterHistory(outerEntry, msgData.outer, parentOuterId);
 
     var innerWin;
     if (msgData.inner in WinMap._inner) {
       innerWin = WinMap.getInnerWindowFromId(msgData.inner);
 
     } else {
-      LoginCopy.fromOpener("domcreated", outerData, msgData.openerInnerId, msgData.outer);
-
       innerWin = new InnerWindow(msgData);
-
       console.assert((innerWin.parentId in WinMap._waitingRemoval) === false, "addInner: parent doesn't exist anymore", innerWin);
       WinMap._inner[innerWin.innerId] = innerWin;
 
@@ -82,6 +79,8 @@ var NewDocUser = {
       if (innerWin.parentId !== WindowUtils.WINDOW_ID_NONE) {
         WinMap._incChildrenCount(innerWin.parentId);
       }
+
+      LoginCopy.fromOpener("domcreated", innerWin);
     }
 
     innerWin.setLocation(msgData.url, msgData.origin);
@@ -104,9 +103,9 @@ var NewDocUser = {
                       ? WindowUtils.WINDOW_ID_NONE
                       : WinMap.getInnerWindowFromId(channelWin.parentId).outerId;
 
-    var outerData = WinMap.addToOuterHistory(entry, channelWin.outerId, parentOuterId);
+    WinMap.addToOuterHistory(entry, channelWin.outerId, parentOuterId);
 
-    LoginCopy.fromOpener("request", outerData, channelWin.openerId, channelWin.outerId);
+    LoginCopy.fromOpener("request", channelWin);
 
     // requestURI might define a new top-level browsing context, so
     // channelWin.topWindow.innerId is invalid, as it refers to the current top window
@@ -506,7 +505,6 @@ var WinMap = { // stores all current outer/inner windows
       outerData["x-history-length"] = 1;
     }
     this._pushHistory(newHistObj, outerData.outerHistory);
-    return outerData;
   },
 
 
@@ -517,23 +515,6 @@ var WinMap = { // stores all current outer/inner windows
     } else {
       outerHistory.push(entry);
     }
-  },
-
-
-  getTabId: function(outerId) { // used by fromOpener
-    console.assert(typeof outerId === "number", "getTabId invalid type", outerId);
-    console.assert(outerId !== WindowUtils.WINDOW_ID_NONE, "getTabId invalid param", outerId);
-    var all = this._outer;
-    if ((outerId in all) === false) {
-      //this._update();
-    }
-    console.assert(outerId in all, "getTabId not found", outerId);
-    var win = all[outerId];
-    while (win.parentOuter !== WindowUtils.WINDOW_ID_NONE) {
-      outerId = win.parentOuter;
-      win = all[outerId];
-    }
-    return outerId;
   },
 
 
@@ -791,47 +772,37 @@ var DebugWinMap = {
 
 
 var LoginCopy = {  // TODO needed only for new outer wins
-  fromOpener: function(src, outerData, openerId, outerId) { // TODO still necessary?
-    if (openerId === WindowUtils.WINDOW_ID_NONE) {
+  fromOpener: function(src, targetWin) { // TODO still necessary?
+    if (targetWin.openerId === WindowUtils.WINDOW_ID_NONE) {
       return;
     }
 
-    if ("x-opener-order" in outerData) {
-      outerData["x-opener-order"] += " " + src;
+    var sourceWin = WinMap.getInnerWindowFromId(targetWin.openerId);
+    var sourceOuter = WinMap.getOuterEntry(sourceWin.topWindow.outerId);
+    var targetOuter = WinMap.getOuterEntry(targetWin.topWindow.outerId);
+
+    if ("x-opener-order" in targetOuter) {
+      targetOuter["x-opener-order"] += " " + src;
     } else {
-      outerData["x-opener-order"] = src;
+      targetOuter["x-opener-order"] = src;
     }
-    if ("opener-logins-migrated" in outerData) {
+    if ("opener-logins-migrated" in targetOuter) {
       return;
     }
 
-    if ("openerOuterId" in outerData) {
-      console.assert(outerData.openerOuterId === WinMap.getInnerWindowFromId(openerId).outerId,
-                     "outerData.openerOuterId !== openerOuter");
-    } else {
-      outerData.openerOuterId = openerId === WindowUtils.WINDOW_ID_NONE
-                              ? WindowUtils.WINDOW_ID_NONE
-                              : WinMap.getInnerWindowFromId(openerId).outerId;
-    }
-
-    outerData["opener-logins-migrated"] = outerData.openerOuterId;
-
-    var openerTabId = WinMap.getTabId(outerData.openerOuterId);
-    var targetTabId = WinMap.getTabId(outerId);
-    this._copyLogins(targetTabId, openerTabId);
+    targetOuter["opener-logins-migrated"] = true;
+    this._copyLogins(targetOuter, sourceOuter);
   },
 
 
-  _copyLogins: function(targetTabId, sourceTabId) {
-    console.assert(targetTabId !== sourceTabId, "_copyLogins same tab", sourceTabId);
-    var sourceTabData = WinMap.getOuterEntry(sourceTabId);
+  _copyLogins: function(targetTabData, sourceTabData) {
     if (("tabLogins" in sourceTabData) === false) {
       return; // nothing to copy
     }
 
-    var targetTabData = WinMap.getOuterEntry(targetTabId);
     if (("tabLogins" in targetTabData) === false) {
       targetTabData.tabLogins = {firstParty: Object.create(null)};
+      // TODO remove targetTabData.tabLogins if it's empty
     }
 
     var targetLogins = targetTabData.tabLogins.firstParty;
