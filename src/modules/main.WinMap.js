@@ -592,15 +592,11 @@ var WinMap = { // stores all current outer/inner windows
 
 
   getAsAnonUserUri: function(topWin, uri, uriIsWin) {
-    if (uriIsWin === false) {
-      return this.getAsAnonUserJs(topWin, topWin.eTld);
-    }
-
-    // uri refers to a window channel
-    var tld = getTldFromUri(uri);
+    // uri refers to a window|element channel
+    var tld = uriIsWin ? getTldFromUri(uri) : topWin.eTld;
     if (tld === null) {
       // "about:"
-      tld = getTldForUnsupportedScheme(innerWin.originalUri);
+      tld = getTldForUnsupportedScheme(uriIsWin ? uri : topWin.originalUri);
     }
     return this.getAsAnonUserJs(topWin, tld);
   },
