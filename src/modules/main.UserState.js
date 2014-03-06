@@ -200,9 +200,8 @@ var UserState = {
       return;
     }
 
-    var isWinChannel = myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN;
     console.assert((usr !== null) || (LoginDB.isLoggedIn(StringEncoding.encode(tldRequest)) === false),
-                   "addRequest usr=null loggedin tld", tldRequest, isWinChannel ? "window" : "resource", usr, uri.prePath);//, channelWindow);
+                   "addRequest usr=null loggedin tld", tldRequest, myChannel.isWindow ? "window" : "resource", usr, uri.prePath, channelWindow);
 
     // user=null => null or anon window/asset request using an inherited user
     if ("thirdPartyUsers" in topData) {

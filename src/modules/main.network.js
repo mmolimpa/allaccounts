@@ -29,10 +29,13 @@ var NetworkObserver = {
         if (cookies !== null) {
           //console.log("request  - no window + Cookie", httpChannel.URI, cookies);
         }
+        // request from chrome (favicon, updates, <link rel="next"...)
+        // safebrowsing, http://wpad/wpad.dat
+        // private window
+        return;
       }
 
-
-      if (myChannel.channelType !== myChannel.CHANNEL_CONTENT_WIN) {
+      if (myChannel.isWindow === false) {
         var innerWin = myChannel.linkedWindow;
         if (innerWin && (innerWin.documentElementInserted === false) && innerWin.isInsideTab) {
           var win = Services.wm.getCurrentInnerWindowWithId(innerWin.innerId);
@@ -42,8 +45,6 @@ var NetworkObserver = {
           }
         }
       }
-
-
 
       var docUser = NetworkObserver._request._getUser(myChannel, httpChannel.URI);
       if (docUser === null) {
@@ -58,24 +59,17 @@ var NetworkObserver = {
 
 
     _getUser: function(myChannel, uri) {
-      var docUser;
-
-      switch (myChannel.channelType) {
-        case myChannel.CHANNEL_CONTENT_ASSET:
-          docUser = WinMap.getUserForAssetUri(myChannel.linkedWindow, uri);
-          break;
-        case myChannel.CHANNEL_CONTENT_WIN:
-          docUser = NewDocUser.addWindowRequest(myChannel.linkedWindow, uri);
-          break;
-        case myChannel.CHANNEL_VIEW_SOURCE:
+      if (myChannel.linkedWindow.isInsideTab === false) {
+        if (NetworkObserver._isViewSource(myChannel.linkedWindow)) {
           console.log("REQUEST - viewsource", uri, myChannel.linkedWindow);
           return NewDocUser.viewSourceRequest(myChannel.linkedWindow.innerId, uri);
-        default: // myChannel.CHANNEL_UNKNOWN
-          // request from chrome (favicon, updates, <link rel="next"...)
-          // safebrowsing, http://wpad/wpad.dat
-          // private window
-          return null;
+        }
+        return null;
       }
+
+      var docUser = myChannel.isWindow
+                  ? NewDocUser.addWindowRequest(myChannel.linkedWindow, uri)
+                  : WinMap.getUserForAssetUri(myChannel.linkedWindow, uri);
 
       if (docUser !== null) {
         // log to topData.thirdPartyUsers
@@ -99,7 +93,9 @@ var NetworkObserver = {
         if (setCookies2 !== null) {
           console.log("RESPONSE - no window + SetCookie", httpChannel.URI, setCookies2);
         }
+        return;
       }
+
       var docUser = NetworkObserver._response._getUser(myChannel);
       if (docUser === null) {
         return; // set default cookies
@@ -124,22 +120,16 @@ var NetworkObserver = {
 
 
     _getUser: function(myChannel) {
-      var uri = myChannel.underlyingChannel.URI;
-      var docUser;
-
-      switch (myChannel.channelType) {
-        case myChannel.CHANNEL_CONTENT_ASSET:
-          docUser = WinMap.getUserForAssetUri(myChannel.linkedWindow, uri);
-          break;
-        case myChannel.CHANNEL_CONTENT_WIN:
-          docUser = NewDocUser.addDocumentResponse(myChannel.underlyingChannel, myChannel.linkedWindow);
-          break;
-        case myChannel.CHANNEL_VIEW_SOURCE:
-          throw new Error("_response => CHANNEL_VIEW_SOURCE");
-        default:
-          return null;
+      if (myChannel.linkedWindow.isInsideTab === false) {
+        if (NetworkObserver._isViewSource(myChannel.linkedWindow)) {
+          throw new Error("response => VIEW SOURCE");
+        }
+        return null;
       }
 
+      var docUser = myChannel.isWindow
+                  ? NewDocUser.addDocumentResponse(myChannel.underlyingChannel, myChannel.linkedWindow)
+                  : WinMap.getUserForAssetUri(myChannel.linkedWindow, myChannel.underlyingChannel.URI);
 
       if (docUser !== null) {
         return docUser;
@@ -153,7 +143,7 @@ var NetworkObserver = {
     var uri = myChannel.underlyingChannel.URI;
     if (LoginDB.isLoggedIn(StringEncoding.encode(getTldFromHost(uri.host)))) {
       console.log("channel err - login found but not used!", uri,
-                  myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN,
+                  myChannel.isWindow,
                   myChannel.linkedWindow.originalUri,
                   myChannel.linkedWindow.innerId);
     }
@@ -161,6 +151,17 @@ var NetworkObserver = {
     if (myChannel.isFirstParty || myChannel.isTopLevelBrowsingContext) {
       return null;
     }
-    return WinMap.getAsAnonUserUri(myChannel.linkedWindow.topWindow, uri, myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN);
+    return WinMap.getAsAnonUserUri(myChannel.linkedWindow.topWindow, uri, myChannel.isWindow);
+  },
+
+
+  _isViewSource: function (innerWin) {
+    if (innerWin.isInsideTab) {
+      return false;
+    }
+
+    var win = Services.wm.getCurrentInnerWindowWithId(innerWin.innerId);
+    var chromeWin = UIUtils.getTopLevelWindow(win);
+    return chromeWin && UIUtils.isSourceWindow(chromeWin);
   }
 };

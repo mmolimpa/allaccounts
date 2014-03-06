@@ -4,6 +4,9 @@
 
 
 function ChannelProperties(httpChannel) {
+  this._channel = Cu.getWeakReference(httpChannel);
+  this._isWindow = this._isWindowChannel(httpChannel);
+
   var ctx = this._getLoadContext(httpChannel)
   if (ctx === null) {
     // CA, sync, favicon, update, wpad
@@ -54,19 +57,9 @@ function ChannelProperties(httpChannel) {
     return;
   }
 
-  this._innerWindow = WinMap.getInnerWindowFromId(getDOMUtils(win).currentInnerWindowID);
+  this._innerWindow = WinMap.getInnerWindowFromObj(win);
 
-  if (this._innerWindow.isInsideTab) {
-    this._type = this._isWindow(httpChannel) ? this.CHANNEL_CONTENT_WIN
-                                             : this.CHANNEL_CONTENT_ASSET;
-    return;
-  }
-
-
-  var chromeWin = UIUtils.getTopLevelWindow(win);
-  if (chromeWin && UIUtils.isSourceWindow(chromeWin)) {
-    this._type = this.CHANNEL_VIEW_SOURCE;
-  } else {
+  if (this._innerWindow.isInsideTab === false) {
     try {
       httpChannel.requestSucceeded;
       console.log("RESPONSE - tab not found", httpChannel.URI, win, this._innerWindow);
@@ -80,16 +73,10 @@ function ChannelProperties(httpChannel) {
 ChannelProperties.prototype = {
   _innerWindow: null,
   _channel: null,
-
-  _type: 0,
-  CHANNEL_UNKNOWN: 0,
-  CHANNEL_CONTENT_WIN: 1,
-  CHANNEL_CONTENT_ASSET: 2,
-  CHANNEL_VIEW_SOURCE: 3,
-
+  _isWindow: false,
 
   _DOCUMENT_URI: Ci.nsIChannel.LOAD_DOCUMENT_URI,
-  _isWindow: function(channel) {
+  _isWindowChannel: function(channel) {
     // window/redir/download
     return (channel.loadFlags & this._DOCUMENT_URI) !== 0;
   },
@@ -100,14 +87,15 @@ ChannelProperties.prototype = {
   },
 
 
-  get channelType() {
-    return this._type;
+  get isWindow() {
+    return this._isWindow;
   },
 
 
   get isTopLevelBrowsingContext() {
-    return (this.channelType === this.CHANNEL_CONTENT_WIN) &&
-            this.linkedWindow.isTop;
+    return this._isWindow &&
+           this._innerWindow.isTop &&
+           this._innerWindow.isInsideTab;
   },
 
 
@@ -127,7 +115,6 @@ ChannelProperties.prototype = {
 
 
   _getLoadContext: function(channel) {
-    this._channel = Cu.getWeakReference(channel);
     if (channel.notificationCallbacks) {
       try {
         return channel.notificationCallbacks.getInterface(Ci.nsILoadContext);
