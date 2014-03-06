@@ -161,6 +161,6 @@ var NetworkObserver = {
     if (myChannel.isFirstParty || myChannel.isTopLevelBrowsingContext) {
       return null;
     }
-    return WinMap.getAsAnonUserUri(myChannel.linkedWindow.topWindow, uri);
+    return WinMap.getAsAnonUserUri(myChannel.linkedWindow.topWindow, uri, myChannel.channelType === myChannel.CHANNEL_CONTENT_WIN);
   }
 };

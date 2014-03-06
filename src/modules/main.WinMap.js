@@ -585,12 +585,18 @@ var WinMap = { // stores all current outer/inner windows
 
     // resUri could be a logged in tld (different from anonymous innerId)
     var topWin = innerWin.topWindow;
-    var assetUser = this.findUser(resUri, topWin.innerId, topWin.outerId);
-    return assetUser === null ? null : this.getAsAnonUserUri(topWin, resUri);
+    var isAnon = this.findUser(resUri, topWin.innerId, topWin.outerId) === null;
+    return isAnon ? null
+                  : this.getAsAnonUserUri(topWin, resUri, false);
   },
 
 
-  getAsAnonUserUri: function(topWin, uri) {
+  getAsAnonUserUri: function(topWin, uri, uriIsWin) {
+    if (uriIsWin === false) {
+      return this.getAsAnonUserJs(topWin, topWin.eTld);
+    }
+
+    // uri refers to a window channel
     var tld = getTldFromUri(uri);
     if (tld === null) {
       // "about:"
