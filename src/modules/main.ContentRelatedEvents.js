@@ -91,9 +91,7 @@ var ContentRelatedEvents = {
   _onRemoteMsg: {
     observe: function(subject, topic, data) {
       var parentBrowser = subject;
-
-      console.assert((parentBrowser.tagName === "xul:browser") || (parentBrowser.tagName === "browser"),
-                     "not a browser element");
+      console.assert(parentBrowser.localName === "browser", "not a browser element");
 
       var rv = ContentRelatedEvents._onRemoteBrowserMessage({
         target: parentBrowser,

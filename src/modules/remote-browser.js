@@ -240,14 +240,11 @@ var UIUtils = {
     if (browser === null) {
       return null;
     }
-    if (browser.tagName === "xul:browser") {
-      return browser;
-    }
-    if (browser.tagName === "browser") {
+    if (browser.localName === "browser") {
       return browser;
     }
     // e.g. <iframe> chrome://browser/content/devtools/cssruleview.xhtml
-    console.log("not a browser element", browser.tagName, win, win.parent);
+    console.log("not a browser element", browser.localName, win, win.parent);
     return null;
   },
 
