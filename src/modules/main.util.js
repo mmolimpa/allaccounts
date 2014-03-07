@@ -62,7 +62,7 @@ function findTabById(tabId) { // TODO keep a weakref list of tabs tabList[tabId]
   while (enumWin.hasMoreElements()) {
     var tabList = UIUtils.getTabList(enumWin.getNext());
     for (var idx = tabList.length - 1; idx > -1; idx--) {
-      if (getIdFromTab(tabList[idx]) === tabId) {
+      if (getTabIdFromBrowser(tabList[idx].linkedBrowser) === tabId) {
         return tabList[idx];
       }
     }
@@ -71,9 +71,8 @@ function findTabById(tabId) { // TODO keep a weakref list of tabs tabList[tabId]
 }
 
 
-function getIdFromTab(tab) {
-  var win = tab.linkedBrowser.contentWindow;
-  return getDOMUtils(win).outerWindowID;
+function getTabIdFromBrowser(browser) {
+  return getDOMUtils(browser.contentWindow).outerWindowID;
 }
 
 
@@ -191,7 +190,7 @@ function enableErrorMsg(browser, innerId, notSupportedFeature, err = undefined) 
 
   var tab = UIUtils.getLinkedTabFromBrowser(browser);
   tab.setAttribute("${BASE_DOM_ID}-tab-error", notSupportedFeature);
-  updateUIAsync(tab, true);
+  updateUIAsync(browser, true);
 }
 
 
@@ -259,7 +258,7 @@ function debugData() {
       var tab = tabList[idx];
       if (tab.hasAttribute(loginsAttr)) {
         // TODO compare attr & WinMap
-        logins[getIdFromTab(tab)] = JSON.parse(tab.getAttribute(loginsAttr));
+        logins[getTabIdFromBrowser(tab.linkedBrowser)] = JSON.parse(tab.getAttribute(loginsAttr));
       }
     }
   }

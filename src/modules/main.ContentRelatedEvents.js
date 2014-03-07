@@ -159,16 +159,14 @@ var ContentRelatedEvents = {
               var docUser = innerWin.docUserObj;
               UserState.setTabDefaultFirstParty(docUser.ownerTld, tabId, docUser.user); // BUG [?] a 3rd party iframe may become the default
             }
-            var tab = UIUtils.getLinkedTabFromBrowser(UIUtils.getParentBrowser(win));
-            updateUIAsync(tab, innerWin.isTop);
+            updateUIAsync(UIUtils.getParentBrowser(win), innerWin.isTop);
           }
         }
 
       } else { // ftp:, about:, chrome: etc. request/response listener may not be called
         var innerWin = WinMap.getInnerWindowFromObj(win);
         if (innerWin.isInsideTab) {
-          var tab = UIUtils.getLinkedTabFromBrowser(UIUtils.getParentBrowser(win));
-          updateUIAsync(tab, innerWin.isTop);
+          updateUIAsync(UIUtils.getParentBrowser(win), innerWin.isTop);
         }
       }
 
@@ -326,7 +324,7 @@ var RemoteBrowserMethod = {
     var customize = NewDocUser.onDocElementInserted(msgData); // may create InnerWindow
     var innerWin = WinMap.getInnerWindowFromId(msgData.inner);
     if (innerWin.isInsideTab) {
-      updateUIAsync(UIUtils.getLinkedTabFromBrowser(browser), innerWin.isTop);
+      updateUIAsync(browser, innerWin.isTop);
     }
 
     if (customize) {

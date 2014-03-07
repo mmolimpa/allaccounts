@@ -383,7 +383,7 @@ var UserChange = {
     var enumWin = UIUtils.getWindowEnumerator();
     while (enumWin.hasMoreElements()) {
       var tab = UIUtils.getSelectedTab(enumWin.getNext());
-      updateUIAsync(tab, true);
+      updateUIAsync(tab.linkedBrowser, true);
     }
   },
 

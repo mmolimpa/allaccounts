@@ -191,7 +191,7 @@ var NewDocUser = {
     if (chromeWin && chromeWin.opener) {
       if (UIUtils.isMainWindow(chromeWin.opener)) {
         var selTab = UIUtils.getSelectedTab(chromeWin.opener);
-        return WinMap.findUser(uri, getCurrentTopInnerId(selTab), getIdFromTab(selTab));
+        return WinMap.findUser(uri, getCurrentTopInnerId(selTab), getTabIdFromBrowser(selTab.linkedBrowser));
       }
     }
     // BUG null for anon iframes (we would need to know its parent). find focused frame?
@@ -637,7 +637,7 @@ var WinMap = { // stores all current outer/inner windows
     }
 
     var logins = tabLogins.firstParty;
-    var tabId = getIdFromTab(tab);
+    var tabId = getTabIdFromBrowser(tab.linkedBrowser);
     var obj;
     var userId;
     for (var tld in logins) {

@@ -238,8 +238,8 @@ function onLoginCommand(evt){
 
 function loginCommandCore(menuItem, newTab) {
   var win = menuItem.ownerDocument.defaultView;
-  var tab = UIUtils.getSelectedTab(win);
-  var uri = tab.linkedBrowser.currentURI;
+  var browser = UIUtils.getSelectedTab(win).linkedBrowser;
+  var topWin = WinMap.getInnerWindowFromObj(browser.contentWindow);
   var userId = null;
 
   if (menuItem.hasAttribute("login-tld")) {
@@ -249,34 +249,32 @@ function loginCommandCore(menuItem, newTab) {
 
   switch (menuItem.getAttribute("cmd")) {
     case "new account":
-      var tabTld = getTldFromHost(uri.host);
       removeCookies(CookieUtils.getUserCookies(userId));
-      removeTldData_LS(tabTld);
-      loadTab(newTab, tab, userId);
+      removeTldData_LS(topWin.eTld);
+      loadTab(newTab, browser, userId);
       break;
 
     case "switch user":
-      loadTab(newTab, tab, userId);
+      loadTab(newTab, browser, userId);
       break;
 
     case "del user":
-      var tldTop = getTldFromHost(uri.host);
-      var users = LoginDB.getUsers(StringEncoding.encode(tldTop));
+      var users = LoginDB.getUsers(StringEncoding.encode(topWin.eTld));
       removeCookies(CookieUtils.getUserCookies(userId));
       if (users.length === 1) {
         // removing the last user
         removeCookies(CookieUtils.getUserCookies(userId.toNewAccount()));
-        UserChange.remove(tldTop, true, userId);
-        util.reloadTab(tab.linkedBrowser);
+        UserChange.remove(topWin.eTld, true, userId); // BUG? unload will need the user
+        util.reloadTab(browser);
       } else {
-        UserChange.remove(tldTop, false, userId);
-        loadTab(newTab, tab, userId.toNewAccount());
+        UserChange.remove(topWin.eTld, false, userId);
+        loadTab(newTab, browser, userId.toNewAccount());
       }
       break;
 
     case "set 3rd-party":
-      UserState.setTabDefaultThirdParty(menuItem.getAttribute("login-doc"), getIdFromTab(tab), userId);
-      util.reloadTab(tab.linkedBrowser);
+      UserState.setTabDefaultThirdParty(menuItem.getAttribute("login-doc"), topWin.outerId, userId);
+      util.reloadTab(browser);
       // TODO handle middle click
       break;
 
@@ -287,18 +285,17 @@ function loginCommandCore(menuItem, newTab) {
 }
 
 
-function loadTab(newTab, tab, user) {
-  var browser = tab.linkedBrowser;
+function loadTab(newTab, browser, user) {
   var uri = browser.currentURI;
   var tldDoc = getTldFromHost(uri.host);
 
   if (newTab) {
     // TODO inherit default users
     LoginDB.setDefaultUser(StringEncoding.encode(tldDoc), user); // BUG should twitpic set twitter as well?
-    openNewTab(uri.spec, tab.ownerDocument.defaultView);
+    openNewTab(uri.spec, browser.ownerDocument.defaultView);
   } else {
-    UserState.setTabDefaultFirstParty(tldDoc, getIdFromTab(tab), user);
-    updateUIAsync(tab, true); // show new user now, don't wait for new dom // BUG it doesn't working
+    UserState.setTabDefaultFirstParty(tldDoc, getTabIdFromBrowser(browser), user);
+    updateUIAsync(browser, true); // show new user now, don't wait for new dom // BUG it doesn't working
     util.reloadTab(browser);
   }
 }

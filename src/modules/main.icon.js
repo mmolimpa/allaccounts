@@ -23,16 +23,17 @@ function setWelcomeMode(enable) {
       icon.removeAttribute("current-error");
       insertIcon(false, null, win.document);
     }
-    updateUIAsync(UIUtils.getSelectedTab(win), true);
+    updateUIAsync(UIUtils.getSelectedTab(win).linkedBrowser, true);
   }
 }
 
 
-function updateUIAsync(tab, updateTopLogin) {
+function updateUIAsync(browser, updateTopLogin) {
+  var tab = UIUtils.getLinkedTabFromBrowser(browser);
   if (tab.hasAttribute("selected") === false) {
     return;
   }
-  var doc = tab.ownerDocument;
+  var doc = browser.ownerDocument;
   if (updateTopLogin === false) {
     // 3rd-party icon?
     var container = getIconContainer(doc);
@@ -340,7 +341,7 @@ function showMsgPanel(evt) {
     initIconNormal(doc);
     var tab = UIUtils.getSelectedTab(doc.defaultView);
     tab.removeAttribute("${BASE_DOM_ID}-tab-error");
-    updateUIAsync(tab, true); // remove error msg
+    updateUIAsync(tab.linkedBrowser, true); // remove error msg
   }, false);
 
   panel.openPopup(getStatIconContainer(doc), "bottomcenter topleft", 5, 0); // due to img.style.margin

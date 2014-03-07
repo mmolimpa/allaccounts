@@ -55,14 +55,14 @@ var ChromeRelatedEvents = {
     var tab = UIUtils.getSelectedTab(win);
     UserState.setGlobalDefault(tab);
     //LoginDB._ensureValid(); // BUG workaround to display welcome icon
-    updateUIAsync(tab, true);
+    updateUIAsync(tab.linkedBrowser, true);
   },
 
 
   TabSelect: function(evt) {
     var tab = evt.originalTarget;
     UserState.setGlobalDefault(tab);
-    updateUIAsync(tab, true);
+    updateUIAsync(tab.linkedBrowser, true);
   },
 
 
@@ -81,7 +81,7 @@ var ChromeRelatedEvents = {
   aftercustomization: function(evt) {
     var toolbox = evt.target;
     var tab = UIUtils.getSelectedTab(toolbox.ownerDocument.defaultView);
-    updateUIAsync(tab, true);
+    updateUIAsync(tab.linkedBrowser, true);
   }
 
 };
