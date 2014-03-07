@@ -92,6 +92,10 @@ var UserState = {
     }
 
     var tab = findTabById(tabId);
+    if (tab === null) {
+      // not visible (e.g. about:newtab preloading)
+      return;
+    }
     var loginsAttr = "${PERSIST_TAB_LOGINS}";
     if (hasData) {
       var data = JSON.stringify(tabData.tabLogins);
@@ -325,8 +329,7 @@ var UserChange = {
     console.log("UserChange.remove", tldDoc, isTldEmpty, delUserId);
     var newUser = delUserId.toNewAccount();
 
-    for (var id in WinMap._inner) {
-      var docData = WinMap._inner[id];
+    for (var docData of WinMap.getContentInnerWindowIterator()) {
 
       if ("docUserObj" in docData) {
         if (docData.eTld === tldDoc) {
@@ -369,7 +372,7 @@ var UserChange = {
         this._replaceTldTabDefaults(tldDoc, tabData, delUserId, newUser);
       }
 
-      UserState.updateSessionStore(docData.topWindow.outerId);
+      UserState.updateSessionStore(docData.outerId);
     }
 
     this._updateUIAllWindows();
