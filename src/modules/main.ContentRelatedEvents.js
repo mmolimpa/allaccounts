@@ -219,17 +219,15 @@ var RemoteBrowserMethod = {
                    .getNoAppCodebasePrincipal(docUser.wrapUri(innerWin.originalUri));
     var storage; // nsIDOMStorage
 
-    if (innerWin.isFirstParty || (docUser.user !== null)) {
-      if (innerWin.isFirstParty === false) {
-        console.log("localStorage 3rd-party local", msgData.cmd, innerWin, docUser);
-      }
-      storage = Services.domStorageManager.createStorage(principal, "");
-    } else {
-      // TODO one storage per doc document
-      console.log("localStorage => session", msgData.cmd, innerWin, docUser);
+    if (docUser.isAnonWrap(innerWin.originalUri.host)) {
+      // TODO one storage per doc document?
       storage = Cc["@mozilla.org/dom/sessionStorage-manager;1"]
                   .createInstance(Ci.nsIDOMStorageManager)
                   .createStorage(principal, "");
+    } else {
+      // TODO 1st-party NewAccount should use temp storage
+      console.log("localStorage LOGGED IN", msgData.cmd, innerWin.originalUri.host);
+      storage = Services.domStorageManager.createStorage(principal, "");
     }
 
     var rv = null;

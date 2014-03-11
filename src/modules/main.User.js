@@ -161,6 +161,12 @@ DocumentUser.prototype = {
   },
 
 
+  _WRAP_NONE:      0,
+  _WRAP_ANON_NONE: 1,
+  _WRAP_ANON_USER: 2,
+  _WRAP_LOGGED_IN: 3,
+
+
   wrapUri: function(uri) {
     var u = uri.clone();
     u.host = this.wrapHost(uri.host);
@@ -168,8 +174,20 @@ DocumentUser.prototype = {
   },
 
 
+  isAnonWrap: function(host) {
+    var mode = this._wrapMode(host);
+    return mode === this._WRAP_ANON_NONE
+        || mode === this._WRAP_ANON_USER;
+  },
+
+
   wrapHost: function(host) {
-    // edge case: top-level response => convertCookieDomain needs to wrap
+    return this._wrap(this._wrapMode(host), host);
+  },
+
+
+  _wrapMode: function(host) {
+    // edge case: top-level response => _convertCookieDomain needs to wrap
     // a 3rd-party host defined in "Set-Cookie:x=1;domain=random-host.com"
     console.assert(typeof host === "string", "host should be a string", host);
     var hostTld = getTldFromHost(host);
@@ -179,38 +197,50 @@ DocumentUser.prototype = {
     if (hostUsr === null) {
       if (this.is1stParty(hostTld)) {
         // anon & 1st-party
-        return host;
+        return this._WRAP_NONE;
       } else {
         // anon & 3rd-party
-        return this._user === null ? this._wrap1stPartyAnon(host)
-                                   : this._wrap1stPartyAndWindowUser(host, this._user);
+        return this._user !== null ? this._WRAP_ANON_USER
+                                   : this._WRAP_ANON_NONE;
       }
     }
 
     // host: facebook.com
     if (hostUsr.isNewAccount) {
-      return this.is1stParty(hostTld) ? this._wrapHostUser(host, hostUsr, hostTld) // NewAccount
-                                      : this._wrap1stPartyAnon(host);
+      return this.is1stParty(hostTld) ? this._WRAP_LOGGED_IN // NewAccount
+                                      : this._WRAP_ANON_NONE;
     } else {
-      return this._wrapHostUser(host, hostUsr, hostTld);
+      return this._WRAP_LOGGED_IN;
     }
   },
 
 
-  _wrap1stPartyAnon: function(host) {
-    return host + "." + this._1stPartyTldEncoded + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
-  },
+  _wrap: function(mode, host) {
+    switch (mode) {
+      case this._WRAP_NONE:
+        return host;
 
+      case this._WRAP_ANON_NONE:
+        return host + "." + this._1stPartyTldEncoded
+                    + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
 
-  _wrap1stPartyAndWindowUser: function(host, usr) {
-    return host + "." + this._1stPartyTldEncoded       + "-" + usr.encodedName + "-" + usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
-  },
+      case this._WRAP_ANON_USER:
+        var usr = this._user;
+        return host + "." + this._1stPartyTldEncoded
+                    + "-" + usr.encodedName + "-" + usr.encodedTld
+                    + ".${INTERNAL_DOMAIN_SUFFIX_ANON}";
 
+      case this._WRAP_LOGGED_IN:
+        var hostTld = getTldFromHost(host);
+        var hostUsr = this.findHostUser(hostTld);
+        // We need to use tld(host) ==> otherwise, we couldn't (easily) locate the cookie for different subdomains
+        // TODO NewAccount return host + "." + StringEncoding.encode(hostTld) + "-" usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_LOGGEDIN}";
+        return host + "." + StringEncoding.encode(hostTld)
+                    + "-" + hostUsr.encodedName + "-" + hostUsr.encodedTld
+                    + ".${INTERNAL_DOMAIN_SUFFIX_LOGGEDIN}";
+    }
 
-  _wrapHostUser: function(host, usr, hostTld) {
-    // We need to use tld(host) ==> otherwise, we couldn't (easily) locate the cookie for different subdomains
-    return host + "." + StringEncoding.encode(hostTld) + "-" + usr.encodedName + "-" + usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_LOGGEDIN}";
-    //TODO NewAccount return host + "." + StringEncoding.encode(hostTld) + "-" usr.encodedTld + ".${INTERNAL_DOMAIN_SUFFIX_LOGGEDIN}";
+    throw new Error();
   }
 
 };

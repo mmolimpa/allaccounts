@@ -112,7 +112,7 @@ var Cookies = {
         realDomain = host;
       }
 
-      if (docUser.is1stParty(getTldFromHost(realDomain)) === false) {
+      if (docUser.isAnonWrap(realDomain)) {
         // 3rd-party
         if (this._shouldConvertToSession(myCookie)) {
           // avoid past dates or short expiry
@@ -131,18 +131,19 @@ var Cookies = {
   _SHORT_EXPIRY_MS:  28800 * 1000, // 8h
 
   _shouldConvertToSession: function(myCookie) {
-    var max = myCookie.getMaxAge();
-    if (Number.isNaN(max) === false) {
-      if (max > this._SHORT_EXPIRY_SEC) {
-        return true;
-      }
+    if (myCookie.hasMeta("max-age")) {
+      // ignoring expires
+      var max = parseInt(myCookie.getMeta("max-age"), 10);
+      return Number.isNaN(max)
+             ? true
+             : max > this._SHORT_EXPIRY_SEC;
     }
 
-    var msExpires = myCookie.getExpires();
-    if (Number.isNaN(msExpires) === false) {
-      if ((msExpires - Date.now()) > this._SHORT_EXPIRY_MS) {
-        return true;
-      }
+    if (myCookie.hasMeta("expires")) {
+      var expires = myCookie.getExpires();
+      return Number.isNaN(expires)
+             ? true
+             : (expires - Date.now()) > this._SHORT_EXPIRY_MS;
     }
 
     return false;
@@ -244,20 +245,13 @@ CookieBuilder.prototype = {
   },
 
 
-  getMaxAge: function() {
-    var maxAge = this.getMeta("max-age");
-    return maxAge === null ? Number.NaN : parseInt(maxAge, 10);
-  },
-
-
   getExpires: function() {
+    console.assert(this.hasMeta("expires"), "expires not defined");
     var dateExp1 = this.getMeta("expires");
-    if (dateExp1 === null) {
-      return Number.NaN;
-    }
 
     // Date.parse doesn't recognize "31-Oct-2015"
     var dateExp2 = dateExp1.replace("-", "  ", "g");
+
     var dl = dateExp2.length - dateExp1.length;
     if ((dl !== 0) && (dl !== 2)) {
       // bug: there are dashes we don't expect

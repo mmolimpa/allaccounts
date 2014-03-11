@@ -51,9 +51,7 @@ var NetworkObserver = {
         return; // send default cookies
       }
 
-      var userUri = httpChannel.URI.clone();
-      userUri.host = docUser.wrapHost(userUri.host);
-      var cookie = Cookies.getCookie(false, userUri);
+      var cookie = Cookies.getCookie(false, docUser.wrapUri(httpChannel.URI));
       httpChannel.setRequestHeader("Cookie", cookie, false);
     },
 
