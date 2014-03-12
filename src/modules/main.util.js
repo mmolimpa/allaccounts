@@ -272,13 +272,13 @@ function debugData() {
     "\nLoginDB._tldCookieCounter: " +
     JSON.stringify(LoginDB._tldCookieCounter, null, 2) +
     sep +
-    "\nPersisted Logins: " +
+    "\nPersisted Logins (from " + loginsAttr + "):" +
     JSON.stringify(logins, null, 2) +
     sep +
     "\nUserState._thirdPartyGlobalDefault: " +
     JSON.stringify(UserState._thirdPartyGlobalDefault, null, 2) +
     sep +
-    "\nWinMap: " +
+    "\nWinMap:\n" +
     DebugWinMap.toString() + "\n\n\n" +
     sep +
     "\nWinMap._outer, len=" + Object.keys(WinMap._outer).length + "\n" +

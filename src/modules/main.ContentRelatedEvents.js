@@ -163,6 +163,8 @@ var ContentRelatedEvents = {
 
       } else { // ftp:, about:, chrome: etc. request/response listener may not be called
         var innerWin = WinMap.getInnerWindowFromObj(win);
+        console.assert(innerWin !== null, "win null", win,
+                       getDOMUtils(win).currentInnerWindowID);
         if (innerWin.isInsideTab) {
           updateUIAsync(UIUtils.getParentBrowser(win), innerWin.isTop);
         }

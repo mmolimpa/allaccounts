@@ -677,8 +677,8 @@ var DebugWinMap = {
     for (var id in WinMap._inner) {
       intId = parseInt(id, 10);
       if (usedInners.indexOf(intId) === -1) {
-        output.unshift("*** inner not displayed " + intId + " " +
-                       Services.wm.getCurrentInnerWindowWithId(intId).location, "---");
+        var win = Services.wm.getCurrentInnerWindowWithId(intId);
+        output.unshift("*** inner not displayed " + intId + " " + (win ? win.location : win), "---");
       }
     }
 

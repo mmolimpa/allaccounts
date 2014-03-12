@@ -71,8 +71,8 @@ UserId.prototype = {
 
 
 function DocumentUser(user, plainDocTld, topInnerId, tabId) {
-  console.assert(typeof user        === "object", "invalid user =", user);
-  console.assert(typeof plainDocTld === "string", "invalid plainDocTld =", plainDocTld);
+  console.assert(typeof user        === "object", "invalid user =", user, topInnerId);
+  console.assert(typeof plainDocTld === "string", "invalid plainDocTld =", plainDocTld, topInnerId);
   console.assert(typeof topInnerId  === "number", "invalid topInnerId =", topInnerId);
   console.assert(typeof tabId       === "number", "invalid tabId =", tabId);
   console.assert(getTldFromHost(plainDocTld) === plainDocTld, "plainDocTld is not a TLD", plainDocTld);
@@ -130,7 +130,7 @@ DocumentUser.prototype = {
 
   is1stParty: function(tld) {
     console.assert(getTldFromHost(tld) === tld, "tld is not a TLD", tld);
-    return tld === this._topDocTld;
+    return tld === this._topDocTld; // _topDocTld not used?
   },
 
 

@@ -79,7 +79,9 @@ var UIUtils = {
         }
       }
     }
-    throw new Error("getLinkedTabFromBrowser: tab not found");
+    console.assert(false, "getLinkedTabFromBrowser: tab not found",
+                   browser, browser.contentWindow, browser.contentDocument);
+    throw new Error();
   },
 
 
@@ -123,7 +125,8 @@ var UIUtils = {
 
     console.assert(topwin !== null, "getTopLevelWindow null", win);
     console.assert(topwin !== undefined, "getTopLevelWindow undefined", win);
-    console.assert(topwin === topwin.top, "getTopLevelWindow should return a top window");
+    console.assert(topwin === topwin.top, "getTopLevelWindow should return a top window",
+                   getDOMUtils(topwin).currentInnerWindowID, topwin, topwin.top);
     // unwrapped object allows access to gBrowser etc
     return XPCNativeWrapper.unwrap(topwin);
   }

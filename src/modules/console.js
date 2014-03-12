@@ -130,13 +130,13 @@ var console = {
       return "[" + obj.toString() + " " + qty + " " + name + "]";
 
     } else if (obj instanceof Ci.nsIDOMWindow) {
-      return "[" + obj.toString() + " " + obj.location.href + "]";
+      return "[" + obj.toString() + " " + (obj.location ? obj.location.href : "") + "]";
 
     } else if (obj instanceof Ci.nsIDOMDocument) {
       return "[" + obj.toString() + " " + obj.defaultView.location.href + "]";
 
     } else if (obj instanceof Ci.nsIDOMNode) {
-      return "[" + obj.toString() + " " +  obj.nodeName + "]";
+      return "[" + obj.toString() + " " +  obj.localName + "]";
 
     } else if (obj instanceof Ci.nsIDOMEvent) {
       return "[" + obj.toString() +

@@ -39,12 +39,14 @@ var LoginDB = {
 
 
   init: function() {
+    Services.obs.addObserver(this._onCookieRejected, "third-party-cookie-rejected", false);
     Services.obs.addObserver(this._onCookieRejected, "cookie-rejected", false);
     Services.obs.addObserver(this._onCookieChanged, "cookie-changed", false);
   },
 
 
   uninit: function() {
+    Services.obs.removeObserver(this._onCookieRejected, "third-party-cookie-rejected");
     Services.obs.removeObserver(this._onCookieRejected, "cookie-rejected");
     Services.obs.removeObserver(this._onCookieChanged, "cookie-changed");
   },
@@ -288,8 +290,7 @@ var LoginDB = {
 
   _onCookieRejected: {
     observe: function(subject, topic, data) { // nsIObserver
-      //console.log("cookie-rejected 0", subject, topic, data);
-      //console.log("cookie-rejected 1", subject.QueryInterface(Ci.nsIURI));
+      console.log(topic, subject, data);
     }
   },
 
