@@ -9,7 +9,7 @@ locale  ${EXT_HOST}  en-US  locale/en-US/
 #locale  ${EXT_HOST}  es-ES  locale/es-ES/
 
 component   {56c5d3a5-e39c-4131-af85-ebee4fceb792}   components/protocol.js
-contract    @hultmann/allmyaccounts/bg;1             {56c5d3a5-e39c-4131-af85-ebee4fceb792}
-category    profile-after-change                     @hultmann/allmyaccounts/bg;1                  @hultmann/allmyaccounts/bg;1
+contract    @hultmann/allaccounts/bg;1               {56c5d3a5-e39c-4131-af85-ebee4fceb792}
+category    profile-after-change                     @hultmann/allaccounts/bg;1                  @hultmann/allaccounts/bg;1
 
 resource    ${EXT_HOST}                         modules/

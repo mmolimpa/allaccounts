@@ -9,8 +9,8 @@ Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
 function Startup() {}
 
 Startup.prototype = {
-  classDescription: "allmyaccounts bg",
-  contractID: "@hultmann/allmyaccounts/bg;1",
+  classDescription: "allaccounts bg",
+  contractID: "@hultmann/allaccounts/bg;1",
   classID: Components.ID("{56c5d3a5-e39c-4131-af85-ebee4fceb792}"),
   _xpcom_categories: [{category: "profile-after-change"}],
 
