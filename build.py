@@ -43,7 +43,7 @@ b.add_text("locale/${locale}/general.properties")
 b.add_text("locale/${locale}/about.properties")
 b.add_text("locale/${locale}/welcome.properties")
 
-b.set_var("EXT_VERSION", "2.1alpha2pre")
+b.set_var("EXT_VERSION", "2.1alpha2")
 verEx = build_tools.getVersionedString(changeset, b.get_var("EXT_VERSION"))
 
 if changeset == None:
@@ -56,8 +56,8 @@ else:
 b.set_var("EXT_ID",          "{42f25d10-4944-11e2-96c0-0b6a95a8daf0}")
 b.set_var("EXT_NAME",        "AllAccounts (Formerly Multifox 2 BETA)")
 b.set_var("EXT_SITE",        "http://br.mozdev.org/multifox/all.html#allaccounts")
-b.set_var("APP_MIN_VERSION", "27.0")
-b.set_var("APP_MAX_VERSION", "30.*")
+b.set_var("APP_MIN_VERSION", "28.0")
+b.set_var("APP_MAX_VERSION", "31.*")
 b.set_var("CHROME_NAME",     "allaccounts")
 b.set_var("EXT_HOST",        "allaccounts-" + verEx)
 b.set_var("BASE_DOM_ID",     "allaccounts")
