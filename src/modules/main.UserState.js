@@ -55,9 +55,6 @@ var UserState = {
 
   // save currently used login by a tld in a given tab
   setTabDefaultFirstParty: function(tldDoc, tabId, userId) { // TODO use docUser instead of tldDoc + userId + tabId?
-    // update global default for new tabs - current tabs will keep their internal defaults
-    LoginDB.setDefaultUser(StringEncoding.encode(tldDoc), userId);
-
     var tabData = WinMap.getOuterEntry(tabId);
     this._setTabDefault(tabData, "firstParty", tldDoc, userId);
     this.updateSessionStore(tabId);

@@ -251,11 +251,11 @@ function loginCommandCore(menuItem, newTab) {
     case "new account":
       removeCookies(CookieUtils.getUserCookies(userId));
       removeTldData_LS(topWin.eTld);
-      loadTab(newTab, browser, userId);
+      loadTab(newTab, browser, topWin.eTld, userId);
       break;
 
     case "switch user":
-      loadTab(newTab, browser, userId);
+      loadTab(newTab, browser, topWin.eTld, userId);
       break;
 
     case "del user":
@@ -268,7 +268,7 @@ function loginCommandCore(menuItem, newTab) {
         util.reloadTab(browser);
       } else {
         UserChange.remove(topWin.eTld, false, userId);
-        loadTab(newTab, browser, userId.toNewAccount());
+        loadTab(newTab, browser, topWin.eTld, userId.toNewAccount());
       }
       break;
 
@@ -285,14 +285,13 @@ function loginCommandCore(menuItem, newTab) {
 }
 
 
-function loadTab(newTab, browser, user) {
-  var uri = browser.currentURI;
-  var tldDoc = getTldFromHost(uri.host);
+function loadTab(newTab, browser, tldDoc, user) {
+  // update global default for new tabs - current tabs will keep their internal defaults
+  LoginDB.setDefaultUser(StringEncoding.encode(tldDoc), user); // BUG should youtube set google as well?
 
   if (newTab) {
     // TODO inherit default users
-    LoginDB.setDefaultUser(StringEncoding.encode(tldDoc), user); // BUG should twitpic set twitter as well?
-    openNewTab(uri.spec, browser.ownerDocument.defaultView);
+    openNewTab(browser.currentURI.spec, browser.ownerDocument.defaultView);
   } else {
     UserState.setTabDefaultFirstParty(tldDoc, getTabIdFromBrowser(browser), user);
     updateUIAsync(browser, true); // show new user now, don't wait for new dom // BUG it doesn't working
