@@ -104,7 +104,7 @@ function stopTab(src) {
 
 
 function initDoc(win) {
-  var sandbox = Cu.Sandbox(win, {sandboxName: "${BASE_DOM_ID}-content", wantComponents:false});
+  var sandbox = Cu.Sandbox(win, {wantXrays:false, wantComponents:false});
   sandbox.window   = XPCNativeWrapper.unwrap(win);
   sandbox.document = XPCNativeWrapper.unwrap(win.document);
   sandbox.sendCmd = function(obj) {

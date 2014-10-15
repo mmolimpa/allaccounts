@@ -36,6 +36,7 @@ Cu.import("resource://gre/modules/Services.jsm");
 
 
 var m_remote = {};
+var m_oldMoz = Services.vc.compare(Services.appinfo.platformVersion, "34.0a") < 0;
 
 
 var Main = {

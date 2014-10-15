@@ -219,18 +219,20 @@ var RemoteBrowserMethod = {
 
     var principal = Services.scriptSecurityManager
                    .getNoAppCodebasePrincipal(docUser.wrapUri(innerWin.originalUri));
-    var storage; // nsIDOMStorage
+    var domObj; // nsIDOMStorage
 
     if (docUser.isAnonWrap(innerWin.originalUri.host)) {
       // TODO one storage per doc document?
-      storage = Cc["@mozilla.org/dom/sessionStorage-manager;1"]
-                  .createInstance(Ci.nsIDOMStorageManager)
-                  .createStorage(principal, "");
+      domObj = Cc["@mozilla.org/dom/sessionStorage-manager;1"]
+                .createInstance(Ci.nsIDOMStorageManager);
     } else {
       // TODO 1st-party NewAccount should use temp storage
       console.log("localStorage LOGGED IN", msgData.cmd, innerWin.originalUri.host);
-      storage = Services.domStorageManager.createStorage(principal, "");
+      domObj = Services.domStorageManager;
     }
+
+    var storage = m_oldMoz ? domObj.createStorage(principal, "")
+                           : domObj.createStorage(null, principal, "");
 
     var rv = null;
     var oldVal;
