@@ -20,7 +20,7 @@ Cu.import("resource://gre/modules/Services.jsm");
 #include "main.window.js"
 #include "main.network.js"
 #include "main.ChannelProperties.js"
-#include "main.script-injection.js"
+#include "main.script-source.js"
 #include "main.ContentRelatedEvents.js"
 #include "main.ChromeRelatedEvents.js"
 #include "main.WinMap.js"
@@ -36,6 +36,7 @@ Cu.import("resource://gre/modules/Services.jsm");
 
 
 var m_remote = {};
+var m_scriptSource = null;
 var m_oldMoz = Services.vc.compare(Services.appinfo.platformVersion, "34.0a") < 0;
 
 
@@ -99,7 +100,6 @@ var Main = {
 
     Cu.import("${PATH_MODULE}/remote-browser.js", m_remote);
     StringEncoding.init();
-    DocOverlay.init();
     SubmitObserver.start();
     NetworkObserver.start();
     Cookies.start();

@@ -329,7 +329,13 @@ var RemoteBrowserMethod = {
 
     if (customize) {
       // tell remote browser to apply script to document
-      return "initBrowser" in msgData ? DocOverlay.getInitBrowserData() : {};
+      if (!("initBrowser" in msgData)) {
+        return {};
+      }
+      if (m_scriptSource === null) {
+        m_scriptSource = new ScriptSource();
+      }
+      return m_scriptSource.getSource();
     } else {
       return null; // ignore document
     }
