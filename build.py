@@ -42,7 +42,7 @@ b.add_text("locale/${locale}/general.properties")
 b.add_text("locale/${locale}/about.properties")
 b.add_text("locale/${locale}/welcome.properties")
 
-b.set_var("EXT_VERSION", "2.1alpha3pre")
+b.set_var("EXT_VERSION", "2.1alpha3")
 verEx = build_tools.getVersionedString(changeset, b.get_var("EXT_VERSION"))
 
 if changeset == None:
