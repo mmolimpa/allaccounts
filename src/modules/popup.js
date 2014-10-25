@@ -206,7 +206,7 @@ function insertItem(userPopup, myUser, tld) {
 }
 
 
-function onLoginMiddleClick(evt){
+function onLoginMiddleClick(evt) {
   if ((evt.button !== 1) || (evt.detail !== 1)) {
     // allow only middle clicks/single clicks
     return;

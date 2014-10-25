@@ -786,6 +786,7 @@ var LoginCopy = {  // TODO needed only for new outer wins
     }
 
     var sourceWin = WinMap.getInnerWindowFromId(targetWin.openerId);
+    console.assert(sourceWin !== null, "sourceWin not found", targetWin);
     var sourceOuter = WinMap.getOuterEntry(sourceWin.topWindow.outerId);
     var targetOuter = WinMap.getOuterEntry(targetWin.topWindow.outerId);
 
